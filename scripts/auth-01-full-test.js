@@ -62,14 +62,6 @@ async function log(msg) {
     }
 
     if (verificationCode) {
-
-      if (!verificationCode) {
-        const codeElements = await frame.locator('h1, h2, h3, strong, b, [style*="font-size"]').allTextContents();
-        for (const text of codeElements) {
-          const match = text.match(/\b(\d{6})\b/) || text.match(/(\d\s+\d\s+\d\s+\d\s+\d\s+\d)/);
-          if (match) {
-            verificationCode = match[1].replace(/\s/g, '');
-    if (verificationCode) {
       await log('STEP 5: Enter verification code');
       await page.bringToFront();
 
@@ -142,7 +134,6 @@ async function log(msg) {
       try { await page.screenshot({ path: 'screenshots/auth-01-error.png', fullPage: true }); } catch {}
     }
   } finally {
-    if (mailPage) { try { await mailPage.close(); } catch {} }
     if (context) { try { await context.close(); } catch {} }
     if (browser) { try { await browser.close(); } catch {} }
   }
@@ -159,7 +150,6 @@ async function log(msg) {
     console.log('❌ AUTH-01: FAILED');
     console.log('   Could not complete account creation flow');
   }
-  console.log(`   Test email: ${TEST_EMAIL}`);
   console.log('========================================\n');
   process.exit(testPassed ? 0 : 1);
 })();
