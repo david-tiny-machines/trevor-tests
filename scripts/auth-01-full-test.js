@@ -1,9 +1,9 @@
 const { launchBrowser } = require('./launch-browser');
+const { createInbox, waitForCode } = require('./mail-helper');
 
 const TEST_NAME = 'Trevor Test';
 const timestamp = Date.now();
 const EMAIL_PREFIX = `ledgerlab-test-${timestamp}`;
-const TEST_EMAIL = `${EMAIL_PREFIX}@mailinator.com`;
 
 async function log(msg) {
   console.log(`[${new Date().toISOString().substr(11, 8)}] ${msg}`);
@@ -12,16 +12,17 @@ async function log(msg) {
 (async () => {
   console.log('🧪 AUTH-01: Create Account (Full Test)');
   console.log('========================================\n');
-  console.log(`Test Email: ${TEST_EMAIL}\n`);
-
   let browser = null;
   let context = null;
   let page = null;
-  let mailPage = null;
   let testPassed = false;
   let verificationCode = null;
 
   try {
+    await log('STEP 0: Create test inbox');
+    const { email: TEST_EMAIL, sid_token } = await createInbox(EMAIL_PREFIX);
+    await log(`  Test email: ${TEST_EMAIL}`);
+
     browser = await launchBrowser();
     context = await browser.newContext({ ignoreHTTPSErrors: true });
     page = await context.newPage();
@@ -52,39 +53,15 @@ async function log(msg) {
     await log(`  Current URL: ${afterSubmitUrl}`);
     await page.screenshot({ path: 'screenshots/auth-01-step3.png', fullPage: true });
 
-    await log('STEP 4: Check Mailinator for verification email');
-    mailPage = await context.newPage();
-
-    let emailFound = false;
-    await mailPage.goto(`https://www.mailinator.com/v4/public/inboxes.jsp?to=${EMAIL_PREFIX}`);
-    const emailRow = mailPage.locator('tr:has-text("LedgerLab")').first();
-    try {
-      await emailRow.waitFor({ timeout: 90000 });
-      emailFound = true;
-      await log('  ✓ Found email from LedgerLab');
-      await emailRow.click();
-      await mailPage.waitForTimeout(3000);
-    } catch {
-      await log('  ❌ Email not received within 60s');
+    await log('STEP 4: Wait for verification email');
+    verificationCode = await waitForCode(sid_token, 'Activate');
+    if (verificationCode) {
+      await log(`  ✓ Found verification code: ${verificationCode}`);
+    } else {
+      await log('  ❌ No verification code received');
     }
 
-    if (emailFound) {
-      await mailPage.screenshot({ path: 'screenshots/auth-01-step4-email.png', fullPage: true });
-      const frame = mailPage.frameLocator('#html_msg_body');
-      const emailText = await frame.locator('body').textContent().catch(() => '');
-      await log(`  Email content preview: ${emailText.substring(0, 200)}...`);
-
-      const codeMatch = emailText.match(/\b(\d{6})\b/);
-      if (codeMatch) {
-        verificationCode = codeMatch[1];
-        await log(`  ✓ Found verification code: ${verificationCode}`);
-      } else {
-        const spacedMatch = emailText.match(/(\d\s+\d\s+\d\s+\d\s+\d\s+\d)/);
-        if (spacedMatch) {
-          verificationCode = spacedMatch[1].replace(/\s/g, '');
-          await log(`  ✓ Found verification code (spaced): ${verificationCode}`);
-        }
-      }
+    if (verificationCode) {
 
       if (!verificationCode) {
         const codeElements = await frame.locator('h1, h2, h3, strong, b, [style*="font-size"]').allTextContents();
@@ -92,16 +69,6 @@ async function log(msg) {
           const match = text.match(/\b(\d{6})\b/) || text.match(/(\d\s+\d\s+\d\s+\d\s+\d\s+\d)/);
           if (match) {
             verificationCode = match[1].replace(/\s/g, '');
-            await log(`  ✓ Found verification code in element: ${verificationCode}`);
-            break;
-          }
-        }
-      }
-    } else {
-      await log('  ❌ No email from LedgerLab found');
-      await mailPage.screenshot({ path: 'screenshots/auth-01-step4-no-email.png', fullPage: true });
-    }
-
     if (verificationCode) {
       await log('STEP 5: Enter verification code');
       await page.bringToFront();

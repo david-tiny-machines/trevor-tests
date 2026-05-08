@@ -1,34 +1,11 @@
 const { launchBrowser } = require('./launch-browser');
+const { createInbox, waitForCode } = require('./mail-helper');
 
 const timestamp = Date.now();
 const EMAIL_PREFIX = `ledgerlab-reset-${timestamp}`;
-const TEST_EMAIL = `${EMAIL_PREFIX}@mailinator.com`;
 const TEST_NAME = 'Reset Test';
 const ORIGINAL_PASSWORD = 'OriginalPass123!';
 const NEW_PASSWORD = 'NewPassword456!';
-
-async function log(msg) {
-  console.log(`[${new Date().toISOString().substr(11, 8)}] ${msg}`);
-}
-
-async function getCodeFromEmail(mailPage, emailPrefix, emailSubject) {
-  await mailPage.goto(`https://www.mailinator.com/v4/public/inboxes.jsp?to=${emailPrefix}`);
-  const emailRow = mailPage.locator(`tr:has-text("${emailSubject}")`).first();
-  try {
-    await emailRow.waitFor({ timeout: 90000 });
-    await emailRow.click();
-    await mailPage.waitForTimeout(3000);
-    const frame = mailPage.frameLocator('#html_msg_body');
-    const emailText = await frame.locator('body').textContent().catch(() => '');
-    const codeMatch = emailText.match(/\b(\d{6})\b/);
-    if (codeMatch) return codeMatch[1];
-    const spacedMatch = emailText.match(/(\d\s+\d\s+\d\s+\d\s+\d\s+\d)/);
-    if (spacedMatch) return spacedMatch[1].replace(/\s/g, '');
-  } catch {
-    // email not received within timeout
-  }
-  return null;
-}
 
 async function enterOTP(page, code) {
   const otpInputs = page.locator('input[maxlength="1"]');
@@ -47,15 +24,17 @@ async function enterOTP(page, code) {
 (async () => {
   console.log('🧪 AUTH-04: Forgot Password (Full Flow)');
   console.log('=========================================\n');
-  console.log(`Test Email: ${TEST_EMAIL}\n`);
 
   const browser = await launchBrowser();
   const context = await browser.newContext({ ignoreHTTPSErrors: true });
   const page = await context.newPage();
-  const mailPage = await context.newPage();
   let testPassed = false;
 
   try {
+    await log('SETUP: Create test inbox');
+    const { email: TEST_EMAIL, sid_token } = await createInbox(EMAIL_PREFIX);
+    await log(`  Test email: ${TEST_EMAIL}`);
+
     await log('SETUP: Create test account');
     await page.goto('https://ledgerlab.ai/signup');
     await page.waitForLoadState('networkidle');
@@ -70,7 +49,7 @@ async function enterOTP(page, code) {
     await page.click('button:has-text("Continue")');
     await page.waitForTimeout(3000);
 
-    const verifyCode = await getCodeFromEmail(mailPage, EMAIL_PREFIX, 'Activate');
+    const verifyCode = await waitForCode(sid_token, 'Activate');
     if (!verifyCode) throw new Error('Could not get verification code');
     await log(`  Got verification code: ${verifyCode}`);
 
@@ -97,8 +76,7 @@ async function enterOTP(page, code) {
     await log('  ✓ Reset request submitted');
 
     await log('STEP 2: Get reset code from email');
-    await page.waitForTimeout(5000);
-    const resetCode = await getCodeFromEmail(mailPage, EMAIL_PREFIX, 'Reset Your Password');
+    const resetCode = await waitForCode(sid_token, 'Reset');
     if (!resetCode) throw new Error('Could not get reset code from email');
     await log(`  ✓ Got reset code: ${resetCode}`);
 
@@ -158,14 +136,12 @@ async function enterOTP(page, code) {
     await log(`❌ Error: ${error.message}`);
     try { await page.screenshot({ path: 'screenshots/auth-04-error.png', fullPage: true }); } catch {}
   } finally {
-    await mailPage.close();
     await context.close();
     await browser.close();
   }
 
   console.log('\n=========================================');
   console.log(testPassed ? '✅ AUTH-04: PASSED\n   Password reset flow works end-to-end' : '❌ AUTH-04: FAILED\n   Password reset flow did not complete');
-  console.log(`   Test email: ${TEST_EMAIL}`);
   console.log('=========================================\n');
   process.exit(testPassed ? 0 : 1);
 })();
