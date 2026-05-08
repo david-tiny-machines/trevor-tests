@@ -29,6 +29,11 @@ async function log(msg) {
     await log('STEP 1: Navigate to signup page');
     await page.goto('https://ledgerlab.ai/signup');
     await page.waitForLoadState('networkidle');
+    const acceptBtn = page.locator('button:has-text("Accept all")');
+    if (await acceptBtn.isVisible().catch(() => false)) {
+      await acceptBtn.click();
+      await page.waitForTimeout(500);
+    }
     await log('  ✓ Loaded signup page');
 
     await log('STEP 2: Fill signup form');

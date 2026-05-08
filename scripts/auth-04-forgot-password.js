@@ -59,6 +59,11 @@ async function enterOTP(page, code) {
     await log('SETUP: Create test account');
     await page.goto('https://ledgerlab.ai/signup');
     await page.waitForLoadState('networkidle');
+    const acceptBtn = page.locator('button:has-text("Accept all")');
+    if (await acceptBtn.isVisible().catch(() => false)) {
+      await acceptBtn.click();
+      await page.waitForTimeout(500);
+    }
     await page.fill('#fullName', TEST_NAME);
     await page.fill('#email', TEST_EMAIL);
     await page.check('#terms');
