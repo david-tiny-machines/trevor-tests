@@ -1,111 +1,75 @@
-/**
- * Trevor - Start a test session
- * Usage: node run-session.js [task]
- */
+import Anthropic from '@anthropic-ai/sdk';
 
-const API_KEY = process.env.ANTHROPIC_API_KEY;
+const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
 const AGENT_ID = process.env.TREVOR_AGENT_ID;
 const ENVIRONMENT_ID = process.env.TREVOR_ENVIRONMENT_ID;
 const REPO_URL = process.env.TREVOR_REPO_URL;
-const BETA_HEADER = 'managed-agents-2026-04-01';
-const BASE_URL = 'https://api.anthropic.com/v1';
 
-if (!API_KEY || !AGENT_ID || !ENVIRONMENT_ID) {
-  console.error('Missing required env vars: ANTHROPIC_API_KEY, TREVOR_AGENT_ID, TREVOR_ENVIRONMENT_ID');
+if (!AGENT_ID || !ENVIRONMENT_ID) {
+  console.error('Missing TREVOR_AGENT_ID or TREVOR_ENVIRONMENT_ID');
   process.exit(1);
 }
 
-const task = process.argv[2] || 'run the smoke test and report results';
+const task = process.argv[2] || `Run each auth test script individually in sequence and report a result after each one:
+node scripts/auth-01-full-test.js
+node scripts/auth-02-sign-in.js
+node scripts/auth-03-invalid-credentials.js
+node scripts/auth-04-forgot-password.js
+node scripts/auth-05-duplicate-email.js
+node scripts/auth-06-logout.js
+node scripts/auth-07-email-validation.js
+node scripts/auth-08-session-persistence.js
+After all tests, provide a final summary table.`;
 
-async function apiCall(method, path, body) {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method,
-    headers: {
-      'x-api-key': API_KEY,
-      'anthropic-version': '2023-06-01',
-      'anthropic-beta': BETA_HEADER,
-      'content-type': 'application/json',
-    },
-    body: body ? JSON.stringify(body) : undefined,
+async function main() {
+  console.log(`Starting Trevor: "${task}"\n${'─'.repeat(60)}`);
+
+  const session = await client.beta.sessions.create({
+    agent: AGENT_ID,
+    environment_id: ENVIRONMENT_ID,
+    title: `Trevor: ${task.slice(0, 50)}`,
   });
 
-  const data = await res.json();
-  if (!res.ok) throw new Error(`API error ${res.status}: ${JSON.stringify(data)}`);
-  return data;
-}
+  console.log(`Session: ${session.id}\n`);
 
-async function streamSession(sessionId) {
-  const res = await fetch(`${BASE_URL}/sessions/${sessionId}/stream`, {
-    headers: {
-      'x-api-key': API_KEY,
-      'anthropic-version': '2023-06-01',
-      'anthropic-beta': BETA_HEADER,
-      'accept': 'text/event-stream',
-    },
+  const stream = await client.beta.sessions.events.stream(session.id);
+
+  const cloneStep = REPO_URL
+    ? `git clone --depth 1 ${REPO_URL} /workspace && cd /workspace && npm install && (npx playwright install chromium 2>/dev/null || apt-get install -y chromium-browser 2>/dev/null || apt-get install -y chromium 2>/dev/null) && `
+    : '';
+
+  const message = cloneStep
+    ? `Run this setup command first: ${cloneStep}mkdir -p /workspace/screenshots\n\nThen: ${task}`
+    : task;
+
+  await client.beta.sessions.events.send(session.id, {
+    events: [{
+      type: 'user.message',
+      content: [{ type: 'text', text: message }],
+    }],
   });
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Stream error ${res.status}: ${err}`);
-  }
-
-  // Parse SSE stream
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop(); // keep incomplete line
-
-    for (const line of lines) {
-      if (!line.startsWith('data: ')) continue;
-      const raw = line.slice(6).trim();
-      if (raw === '[DONE]') return;
-
-      try {
-        const event = JSON.parse(raw);
-        if (event.type === 'text') {
-          process.stdout.write(event.text);
-        } else if (event.type === 'session_complete') {
-          console.log(`\n${'─'.repeat(60)}`);
-          console.log(`✅ Session complete (${event.stop_reason || 'done'})`);
-        } else if (event.type === 'session_error') {
-          console.log(`\n${'─'.repeat(60)}`);
-          console.error(`❌ Session error: ${JSON.stringify(event)}`);
+  for await (const event of stream) {
+    switch (event.type) {
+      case 'agent.message':
+        for (const block of event.content ?? []) {
+          if (block.text) process.stdout.write(block.text);
         }
-      } catch {}
+        break;
+      case 'agent.tool_use':
+        process.stdout.write(`\n[${event.name}]\n`);
+        break;
+      case 'session.status_idle':
+        console.log(`\n${'─'.repeat(60)}\nDone`);
+        return;
+      case 'session.status_terminated':
+        throw new Error(`Session terminated: ${JSON.stringify(event)}`);
     }
   }
 }
 
-async function main() {
-  console.log(`🧪 Starting Trevor: "${task}"\n${'─'.repeat(60)}`);
-
-  const initCommand = REPO_URL
-    ? `git clone ${REPO_URL} /workspace && cd /workspace && npm install --silent && mkdir -p /workspace/screenshots`
-    : 'mkdir -p /workspace/screenshots';
-
-  const session = await apiCall('POST', '/sessions', {
-    agent_id: AGENT_ID,
-    environment_id: ENVIRONMENT_ID,
-    input: task,
-    environment_variables: {
-      LEDGERLAB_TEST_EMAIL: process.env.LEDGERLAB_TEST_EMAIL || '',
-      LEDGERLAB_TEST_PASSWORD: process.env.LEDGERLAB_TEST_PASSWORD || '',
-    },
-    setup_commands: [initCommand],
-  });
-
-  console.log(`Session: ${session.id}\n`);
-  await streamSession(session.id);
-}
-
 main().catch(err => {
-  console.error('Error:', err.message);
+  console.error('\nError:', err.message);
   process.exit(1);
 });

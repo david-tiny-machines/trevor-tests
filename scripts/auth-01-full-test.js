@@ -1,4 +1,4 @@
-const { chromium } = require('playwright');
+const { launchBrowser } = require('./launch-browser');
 
 const TEST_NAME = 'Trevor Test';
 const timestamp = Date.now();
@@ -22,10 +22,7 @@ async function log(msg) {
   let verificationCode = null;
 
   try {
-    browser = await chromium.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
+    browser = await launchBrowser();
     context = await browser.newContext({ ignoreHTTPSErrors: true });
     page = await context.newPage();
 
@@ -54,22 +51,16 @@ async function log(msg) {
     mailPage = await context.newPage();
 
     let emailFound = false;
-    for (let attempt = 1; attempt <= 12; attempt++) {
-      await log(`  Checking inbox (attempt ${attempt}/12)...`);
-      await mailPage.goto(`https://www.mailinator.com/v4/public/inboxes.jsp?to=${EMAIL_PREFIX}`);
-      await mailPage.waitForLoadState('domcontentloaded');
-
-      const emailRow = mailPage.locator('tr:has-text("LedgerLab")').first();
-      try {
-        await emailRow.waitFor({ timeout: 60000 });
-        emailFound = true;
-        await log('  ✓ Found email from LedgerLab');
-        await emailRow.click();
-        await mailPage.waitForTimeout(3000);
-        break;
-      } catch {
-        await log('  Email not yet received, reloading...');
-      }
+    await mailPage.goto(`https://www.mailinator.com/v4/public/inboxes.jsp?to=${EMAIL_PREFIX}`);
+    const emailRow = mailPage.locator('tr:has-text("LedgerLab")').first();
+    try {
+      await emailRow.waitFor({ timeout: 60000 });
+      emailFound = true;
+      await log('  ✓ Found email from LedgerLab');
+      await emailRow.click();
+      await mailPage.waitForTimeout(3000);
+    } catch {
+      await log('  ❌ Email not received within 60s');
     }
 
     if (emailFound) {

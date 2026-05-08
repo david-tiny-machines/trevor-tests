@@ -1,4 +1,4 @@
-const { chromium } = require('playwright');
+const { launchBrowser } = require('./launch-browser');
 
 async function log(msg) {
   console.log(`[${new Date().toISOString().substr(11, 8)}] ${msg}`);
@@ -8,7 +8,7 @@ async function log(msg) {
   console.log('🧪 AUTH-07: Email Validation');
   console.log('==============================\n');
 
-  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+  const browser = await launchBrowser();
   const context = await browser.newContext({ ignoreHTTPSErrors: true });
   const page = await context.newPage();
   let testPassed = true;

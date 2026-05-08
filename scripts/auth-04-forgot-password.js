@@ -1,4 +1,4 @@
-const { chromium } = require('playwright');
+const { launchBrowser } = require('./launch-browser');
 
 const timestamp = Date.now();
 const EMAIL_PREFIX = `ledgerlab-reset-${timestamp}`;
@@ -12,23 +12,20 @@ async function log(msg) {
 }
 
 async function getCodeFromEmail(mailPage, emailPrefix, emailSubject) {
-  for (let attempt = 1; attempt <= 12; attempt++) {
-    await mailPage.goto(`https://www.mailinator.com/v4/public/inboxes.jsp?to=${emailPrefix}`);
-    await mailPage.waitForLoadState('domcontentloaded');
-    const emailRow = mailPage.locator(`tr:has-text("${emailSubject}")`).first();
-    try {
-      await emailRow.waitFor({ timeout: 60000 });
-      await emailRow.click();
-      await mailPage.waitForTimeout(3000);
-      const frame = mailPage.frameLocator('#html_msg_body');
-      const emailText = await frame.locator('body').textContent().catch(() => '');
-      const codeMatch = emailText.match(/\b(\d{6})\b/);
-      if (codeMatch) return codeMatch[1];
-      const spacedMatch = emailText.match(/(\d\s+\d\s+\d\s+\d\s+\d\s+\d)/);
-      if (spacedMatch) return spacedMatch[1].replace(/\s/g, '');
-    } catch {
-      // email not yet received, reload and retry
-    }
+  await mailPage.goto(`https://www.mailinator.com/v4/public/inboxes.jsp?to=${emailPrefix}`);
+  const emailRow = mailPage.locator(`tr:has-text("${emailSubject}")`).first();
+  try {
+    await emailRow.waitFor({ timeout: 60000 });
+    await emailRow.click();
+    await mailPage.waitForTimeout(3000);
+    const frame = mailPage.frameLocator('#html_msg_body');
+    const emailText = await frame.locator('body').textContent().catch(() => '');
+    const codeMatch = emailText.match(/\b(\d{6})\b/);
+    if (codeMatch) return codeMatch[1];
+    const spacedMatch = emailText.match(/(\d\s+\d\s+\d\s+\d\s+\d\s+\d)/);
+    if (spacedMatch) return spacedMatch[1].replace(/\s/g, '');
+  } catch {
+    // email not received within timeout
   }
   return null;
 }
@@ -52,7 +49,7 @@ async function enterOTP(page, code) {
   console.log('=========================================\n');
   console.log(`Test Email: ${TEST_EMAIL}\n`);
 
-  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+  const browser = await launchBrowser();
   const context = await browser.newContext({ ignoreHTTPSErrors: true });
   const page = await context.newPage();
   const mailPage = await context.newPage();

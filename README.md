@@ -1,12 +1,22 @@
-# Trevor — Ledgerlab Auth Regression Tests
+# Trevor
 
-Playwright-based auth flow regression tests for [ledgerlab.ai](https://ledgerlab.ai).
+Regression testing agent for [ledgerlab.ai](https://ledgerlab.ai).
+
+Trevor runs Playwright auth tests inside a fresh Anthropic Managed Agents container on each run, eliminating the zombie-Chromium problem from persistent containers.
+
+## Quick start
+
+```bash
+cd managed-agent
+node run-session.js "run the smoke test"
+node run-session.js "run the full regression suite"
+```
 
 ## Tests
 
-| ID | Name | Description |
-|----|------|-------------|
-| AUTH-01 | Create Account | Full signup with email verification via Mailinator |
+| ID | Test | What it checks |
+|----|------|----------------|
+| AUTH-01 | Create Account | Signup + email verification (Mailinator) |
 | AUTH-02 | Sign In | Login with valid credentials |
 | AUTH-03 | Invalid Credentials | Wrong password rejected |
 | AUTH-04 | Forgot Password | Full reset flow end-to-end |
@@ -15,24 +25,17 @@ Playwright-based auth flow regression tests for [ledgerlab.ai](https://ledgerlab
 | AUTH-07 | Email Validation | Invalid email formats rejected |
 | AUTH-08 | Session Persistence | Session survives refresh and navigation |
 
-## Running
+## Running tests directly (without the agent)
 
 ```bash
 npm install
-npm test                    # Full suite
-npm run test:smoke          # Quick smoke test
-npm run test:health         # HTTP-only health check (no browser)
+npm test              # Full suite
+npm run test:smoke    # Quick smoke test
+npm run test:health   # HTTP-only health check (no browser)
 ```
 
-## Environment Variables
+Requires Node 18+, Chromium at `/usr/bin/chromium`.
 
-```bash
-LEDGERLAB_TEST_EMAIL=ledgerlab-test-1769824520783@mailinator.com
-LEDGERLAB_TEST_PASSWORD=TestPass123!
-```
+## Architecture
 
-## Requirements
-
-- Node.js 18+
-- Chromium at `/usr/bin/chromium`
-- Playwright (`npm install`)
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).

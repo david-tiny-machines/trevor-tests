@@ -1,4 +1,4 @@
-const { chromium } = require('playwright');
+const { launchBrowser } = require('./launch-browser');
 
 const TEST_EMAIL = process.env.LEDGERLAB_TEST_EMAIL || 'ledgerlab-test-1769824520783@mailinator.com';
 const TEST_PASSWORD = process.env.LEDGERLAB_TEST_PASSWORD || 'TestPass123!';
@@ -11,7 +11,7 @@ async function log(msg) {
   console.log('🧪 AUTH-06: Logout');
   console.log('===================\n');
 
-  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+  const browser = await launchBrowser();
   const context = await browser.newContext({ ignoreHTTPSErrors: true });
   const page = await context.newPage();
   let testPassed = false;

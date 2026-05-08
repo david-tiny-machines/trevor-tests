@@ -4,14 +4,12 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "setup": "node setup-agent.js",
-    "run": "node run-session.js",
-    "slack": "node slack-trigger.js"
+    "setup": "node --env-file=../.env setup-agent.js",
+    "run": "node --env-file=../.env run-session.js",
+    "slack": "node --env-file=../.env slack-trigger.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.95.1",
     "express": "^5.1.0"
-  },
-  "engines": {
-    "node": ">=18"
   }
 }
