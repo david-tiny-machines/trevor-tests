@@ -13,11 +13,10 @@ async function testAuthPage() {
     await log('🧪 Minimal Smoke Test: Auth Page Accessibility');
     browser = await chromium.launch({
       headless: true,
-      executablePath: '/usr/bin/chromium',
-      args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--single-process']
+      args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
     });
 
-    const context = await browser.newContext();
+    const context = await browser.newContext({ ignoreHTTPSErrors: true });
     const page = await context.newPage();
 
     await log('→ Loading signup page...');

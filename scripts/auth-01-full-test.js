@@ -24,10 +24,9 @@ async function log(msg) {
   try {
     browser = await chromium.launch({
       headless: true,
-      executablePath: '/usr/bin/chromium',
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
-    context = await browser.newContext();
+    context = await browser.newContext({ ignoreHTTPSErrors: true });
     page = await context.newPage();
 
     await log('STEP 1: Navigate to signup page');

@@ -51,8 +51,8 @@ async function enterOTP(page, code) {
   console.log('=========================================\n');
   console.log(`Test Email: ${TEST_EMAIL}\n`);
 
-  const browser = await chromium.launch({ headless: true, executablePath: '/usr/bin/chromium', args: ['--no-sandbox', '--disable-setuid-sandbox'] });
-  const context = await browser.newContext();
+  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+  const context = await browser.newContext({ ignoreHTTPSErrors: true });
   const page = await context.newPage();
   const mailPage = await context.newPage();
   let testPassed = false;

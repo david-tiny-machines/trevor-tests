@@ -11,8 +11,8 @@ async function log(msg) {
   console.log('🧪 AUTH-08: Session Persistence');
   console.log('=================================\n');
 
-  const browser = await chromium.launch({ headless: true, executablePath: '/usr/bin/chromium', args: ['--no-sandbox', '--disable-setuid-sandbox'] });
-  const context = await browser.newContext();
+  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+  const context = await browser.newContext({ ignoreHTTPSErrors: true });
   const page = await context.newPage();
   let testPassed = false;
 
