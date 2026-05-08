@@ -1,0 +1,17 @@
+{
+  "name": "trevor-ledgerlab-tests",
+  "version": "1.0.0",
+  "description": "Ledgerlab auth regression tests",
+  "private": true,
+  "scripts": {
+    "test": "node scripts/run-regression-suite.js",
+    "test:smoke": "node scripts/run-regression-minimal.js",
+    "test:health": "bash scripts/api-health-check.sh"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

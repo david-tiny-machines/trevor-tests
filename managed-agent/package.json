@@ -1,0 +1,17 @@
+{
+  "name": "trevor-managed-agent",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "setup": "node setup-agent.js",
+    "run": "node run-session.js",
+    "slack": "node slack-trigger.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
