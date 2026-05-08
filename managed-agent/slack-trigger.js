@@ -1,34 +1,38 @@
-/**
- * Trevor - Slack Webhook Trigger
- * 
- * A minimal Express server that receives Slack slash commands
- * and triggers Trevor test sessions.
- * 
- * Setup in Slack: Create a slash command /trevor pointing to
- * https://your-domain/slack/trevor
- * 
- * Usage in Slack:
- *   /trevor run tests
- *   /trevor smoke test
- *   /trevor run auth-02 and auth-03
- */
 import express from 'express';
+import crypto from 'crypto';
 import Anthropic from '@anthropic-ai/sdk';
 
 const app = express();
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
-
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const AGENT_ID = process.env.TREVOR_AGENT_ID;
 const ENVIRONMENT_ID = process.env.TREVOR_ENVIRONMENT_ID;
-const BETA_HEADER = 'managed-agents-2026-04-01';
-const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN;
 const REPO_URL = process.env.TREVOR_REPO_URL;
+const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN;
+const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET;
+
+// Verify the request actually came from Slack
+function verifySlackSignature(req) {
+  const timestamp = req.headers['x-slack-request-timestamp'];
+  const signature = req.headers['x-slack-signature'];
+  if (!timestamp || !signature) return false;
+  if (Math.abs(Date.now() / 1000 - Number(timestamp)) > 300) return false; // replay protection
+  const base = `v0:${timestamp}:${req.rawBody}`;
+  const expected = 'v0=' + crypto.createHmac('sha256', SLACK_SIGNING_SECRET).update(base).digest('hex');
+  return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+}
+
+// Capture raw body for signature verification before JSON/urlencoded parsing
+app.use((req, _res, next) => {
+  let raw = '';
+  req.on('data', chunk => raw += chunk);
+  req.on('end', () => { req.rawBody = raw; next(); });
+});
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
 
 async function postToSlack(channel, text) {
-  const res = await fetch('https://slack.com/api/chat.postMessage', {
+  await fetch('https://slack.com/api/chat.postMessage', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${SLACK_BOT_TOKEN}`,
@@ -36,84 +40,67 @@ async function postToSlack(channel, text) {
     },
     body: JSON.stringify({ channel, text }),
   });
-  return res.json();
 }
 
-async function runTrevorSession(task, slackChannel, slackResponseUrl) {
+async function runTrevorSession(task, channel) {
   try {
-    // Acknowledge immediately to Slack (must respond within 3s)
-    await fetch(slackResponseUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: `🧪 Trevor is on it: _${task}_` }),
-    });
+    const cloneStep = `git clone --depth 1 ${REPO_URL} /workspace && cd /workspace && npm install && (npx playwright install chromium 2>/dev/null || apt-get install -y chromium-browser 2>/dev/null || true) && mkdir -p /workspace/screenshots`;
 
-    const initCommand = REPO_URL
-      ? `git clone ${REPO_URL} /workspace && cd /workspace && npm install --silent && mkdir -p /workspace/screenshots`
-      : `mkdir -p /workspace/screenshots`;
-
-    const session = await client.beta.managedAgents.sessions.create({
-      agent_id: AGENT_ID,
+    const session = await client.beta.sessions.create({
+      agent: AGENT_ID,
       environment_id: ENVIRONMENT_ID,
-      input: task,
-      environment_variables: {
-        LEDGERLAB_TEST_EMAIL: process.env.LEDGERLAB_TEST_EMAIL || '',
-        LEDGERLAB_TEST_PASSWORD: process.env.LEDGERLAB_TEST_PASSWORD || '',
-      },
-      setup_commands: [initCommand],
-    }, {
-      headers: { 'anthropic-beta': BETA_HEADER }
+      title: `Trevor: ${task.slice(0, 50)}`,
     });
 
-    // Collect full output
-    const stream = await client.beta.managedAgents.sessions.stream(session.id, {
-      headers: { 'anthropic-beta': BETA_HEADER }
+    const stream = await client.beta.sessions.events.stream(session.id);
+
+    await client.beta.sessions.events.send(session.id, {
+      events: [{
+        type: 'user.message',
+        content: [{ type: 'text', text: `Run this setup command first: ${cloneStep}\n\nThen: ${task}` }],
+      }],
     });
 
-    let fullOutput = '';
+    let output = '';
     for await (const event of stream) {
-      if (event.type === 'text') fullOutput += event.text;
+      if (event.type === 'agent.message') {
+        for (const block of event.content ?? []) {
+          if (block.text) output += block.text;
+        }
+      }
     }
 
-    // Post results back to Slack
-    // Truncate if needed (Slack has a 3000 char limit per block)
-    const MAX_LEN = 2800;
-    const truncated = fullOutput.length > MAX_LEN
-      ? fullOutput.slice(-MAX_LEN) + '\n_(truncated — see full output in logs)_'
-      : fullOutput;
+    const MAX = 2800;
+    const body = output.length > MAX
+      ? output.slice(-MAX) + '\n_(truncated)_'
+      : output || '_(no output)_';
 
-    await postToSlack(slackChannel, `🧪 *Trevor results:*\n\`\`\`\n${truncated}\n\`\`\``);
+    await postToSlack(channel, `🧪 *Trevor results for* _${task}_:\n\`\`\`\n${body}\n\`\`\``);
 
   } catch (err) {
     console.error('Trevor session error:', err);
-    await postToSlack(slackChannel, `❌ Trevor encountered an error: ${err.message}`);
+    await postToSlack(channel, `❌ Trevor error: ${err.message}`);
   }
 }
 
-// Health check
 app.get('/health', (_req, res) => res.json({ ok: true, agent: AGENT_ID }));
 
-// Slack slash command handler
-app.post('/slack/trevor', async (req, res) => {
-  const { text, channel_id, response_url } = req.body;
-
-  // Validate it's from Slack (add signing secret verification in prod)
-  if (!channel_id) {
-    return res.status(400).json({ error: 'Invalid request' });
+app.post('/slack/trevor', (req, res) => {
+  if (SLACK_SIGNING_SECRET && !verifySlackSignature(req)) {
+    return res.status(401).json({ error: 'Invalid signature' });
   }
 
-  const task = text?.trim() || 'run the full regression suite';
+  const { text, channel_id } = req.body;
+  if (!channel_id) return res.status(400).json({ error: 'Invalid request' });
 
-  // Must respond within 3 seconds - fire and forget the actual work
+  const task = text?.trim() || 'Run the full auth test suite and report results';
+
+  // Respond to Slack within 3s, run the session async
   res.json({ response_type: 'in_channel', text: `🧪 Trevor starting: _${task}_` });
-
-  // Run async
-  runTrevorSession(task, channel_id, response_url).catch(console.error);
+  runTrevorSession(task, channel_id).catch(console.error);
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Trevor Slack trigger listening on :${PORT}`);
-  console.log(`Agent: ${AGENT_ID}`);
-  console.log(`Environment: ${ENVIRONMENT_ID}`);
+  console.log(`Trevor Slack trigger on :${PORT} — agent ${AGENT_ID}`);
 });
