@@ -15,9 +15,9 @@ async function getCodeFromEmail(mailPage, emailPrefix, emailSubject) {
   for (let attempt = 1; attempt <= 12; attempt++) {
     await mailPage.goto(`https://www.mailinator.com/v4/public/inboxes.jsp?to=${emailPrefix}`);
     await mailPage.waitForLoadState('domcontentloaded');
-    await mailPage.waitForSelector('#logTable tr', { timeout: 10000 }).catch(() => {});
     const emailRow = mailPage.locator(`tr:has-text("${emailSubject}")`).first();
-    if (await emailRow.count() > 0) {
+    try {
+      await emailRow.waitFor({ timeout: 30000 });
       await emailRow.click();
       await mailPage.waitForTimeout(3000);
       const frame = mailPage.frameLocator('#html_msg_body');
@@ -26,8 +26,9 @@ async function getCodeFromEmail(mailPage, emailPrefix, emailSubject) {
       if (codeMatch) return codeMatch[1];
       const spacedMatch = emailText.match(/(\d\s+\d\s+\d\s+\d\s+\d\s+\d)/);
       if (spacedMatch) return spacedMatch[1].replace(/\s/g, '');
+    } catch {
+      // email not yet received, reload and retry
     }
-    if (attempt < 12) await mailPage.waitForTimeout(5000);
   }
   return null;
 }

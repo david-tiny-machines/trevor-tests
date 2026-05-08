@@ -58,19 +58,17 @@ async function log(msg) {
       await log(`  Checking inbox (attempt ${attempt}/12)...`);
       await mailPage.goto(`https://www.mailinator.com/v4/public/inboxes.jsp?to=${EMAIL_PREFIX}`);
       await mailPage.waitForLoadState('domcontentloaded');
-      await mailPage.waitForSelector('#logTable tr', { timeout: 10000 }).catch(() => {});
 
       const emailRow = mailPage.locator('tr:has-text("LedgerLab")').first();
-      if (await emailRow.count() > 0) {
+      try {
+        await emailRow.waitFor({ timeout: 30000 });
         emailFound = true;
         await log('  ✓ Found email from LedgerLab');
         await emailRow.click();
         await mailPage.waitForTimeout(3000);
         break;
-      }
-      if (attempt < 12) {
-        await log('  Email not yet received, waiting 5s...');
-        await mailPage.waitForTimeout(5000);
+      } catch {
+        await log('  Email not yet received, reloading...');
       }
     }
 
