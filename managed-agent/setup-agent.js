@@ -34,7 +34,9 @@ Then call out any failures with exact error and reproduction steps.
 ## Rules
 - Always run scripts from /workspace directory
 - Create /workspace/screenshots/ if it doesn't exist before running
-- Don't run destructive tests against production without asking`;
+- Don't run destructive tests against production without asking
+- NEVER write your own Playwright scripts. Always run the existing scripts in /workspace/scripts/ exactly as-is.
+- If asked to check Mailinator or debug email, run the relevant auth script — do not improvise.`;
 
 async function main() {
   console.log('Creating Trevor agent...');

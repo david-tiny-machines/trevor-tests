@@ -37,6 +37,12 @@ Always invoke tests through the managed agent runner:
 cd managed-agent && npm run run -- "your task here"
 ```
 
+## Rules for the agent running inside the container
+
+- **Never write your own Playwright scripts.** Always run the existing scripts in `scripts/` exactly as-is using `node scripts/<name>.js`.
+- **Never modify test scripts** unless explicitly asked to fix a bug in them.
+- If asked to check Mailinator, debug email, or investigate a failure — run the relevant auth script, read its output, and report. Do not improvise a separate script.
+
 ## Current Status
 
 AUTH-01 (account creation) and AUTH-04 (forgot password) were failing. Root cause identified and fixed — see [docs/DEBUGGING.md](docs/DEBUGGING.md). AUTH-02 through AUTH-08 (minus 01 and 04) verified passing. Full suite with email tests not yet re-verified after fix.
