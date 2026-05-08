@@ -54,8 +54,8 @@ async function log(msg) {
     mailPage = await context.newPage();
 
     let emailFound = false;
-    for (let attempt = 1; attempt <= 6; attempt++) {
-      await log(`  Checking inbox (attempt ${attempt}/6)...`);
+    for (let attempt = 1; attempt <= 12; attempt++) {
+      await log(`  Checking inbox (attempt ${attempt}/12)...`);
       await mailPage.goto(`https://www.mailinator.com/v4/public/inboxes.jsp?to=${EMAIL_PREFIX}`);
       await mailPage.waitForLoadState('networkidle');
       await mailPage.waitForTimeout(2000);
@@ -68,7 +68,7 @@ async function log(msg) {
         await mailPage.waitForTimeout(3000);
         break;
       }
-      if (attempt < 6) {
+      if (attempt < 12) {
         await log('  Email not yet received, waiting 5s...');
         await mailPage.waitForTimeout(5000);
       }
