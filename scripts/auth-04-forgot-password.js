@@ -15,7 +15,7 @@ async function getCodeFromEmail(mailPage, emailPrefix, emailSubject) {
   await mailPage.goto(`https://www.mailinator.com/v4/public/inboxes.jsp?to=${emailPrefix}`);
   const emailRow = mailPage.locator(`tr:has-text("${emailSubject}")`).first();
   try {
-    await emailRow.waitFor({ timeout: 60000 });
+    await emailRow.waitFor({ timeout: 90000 });
     await emailRow.click();
     await mailPage.waitForTimeout(3000);
     const frame = mailPage.frameLocator('#html_msg_body');

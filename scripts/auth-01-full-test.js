@@ -59,7 +59,7 @@ async function log(msg) {
     await mailPage.goto(`https://www.mailinator.com/v4/public/inboxes.jsp?to=${EMAIL_PREFIX}`);
     const emailRow = mailPage.locator('tr:has-text("LedgerLab")').first();
     try {
-      await emailRow.waitFor({ timeout: 60000 });
+      await emailRow.waitFor({ timeout: 90000 });
       emailFound = true;
       await log('  ✓ Found email from LedgerLab');
       await emailRow.click();
