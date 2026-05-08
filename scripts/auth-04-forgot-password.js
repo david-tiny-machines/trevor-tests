@@ -14,7 +14,7 @@ async function log(msg) {
 async function getCodeFromEmail(mailPage, emailPrefix, emailSubject) {
   for (let attempt = 1; attempt <= 12; attempt++) {
     await mailPage.goto(`https://www.mailinator.com/v4/public/inboxes.jsp?to=${emailPrefix}`);
-    await mailPage.waitForLoadState('networkidle');
+    await mailPage.waitForLoadState('domcontentloaded');
     await mailPage.waitForSelector('#logTable tr', { timeout: 10000 }).catch(() => {});
     const emailRow = mailPage.locator(`tr:has-text("${emailSubject}")`).first();
     if (await emailRow.count() > 0) {

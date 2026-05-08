@@ -57,7 +57,7 @@ async function log(msg) {
     for (let attempt = 1; attempt <= 12; attempt++) {
       await log(`  Checking inbox (attempt ${attempt}/12)...`);
       await mailPage.goto(`https://www.mailinator.com/v4/public/inboxes.jsp?to=${EMAIL_PREFIX}`);
-      await mailPage.waitForLoadState('networkidle');
+      await mailPage.waitForLoadState('domcontentloaded');
       await mailPage.waitForSelector('#logTable tr', { timeout: 10000 }).catch(() => {});
 
       const emailRow = mailPage.locator('tr:has-text("LedgerLab")').first();
