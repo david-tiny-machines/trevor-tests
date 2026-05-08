@@ -7,6 +7,10 @@ const TEST_NAME = 'Reset Test';
 const ORIGINAL_PASSWORD = 'OriginalPass123!';
 const NEW_PASSWORD = 'NewPassword456!';
 
+async function log(msg) {
+  console.log(`[${new Date().toISOString().substr(11, 8)}] ${msg}`);
+}
+
 async function enterOTP(page, code) {
   const otpInputs = page.locator('input[maxlength="1"]');
   if (await otpInputs.count() >= 6) {
