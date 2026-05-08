@@ -1,51 +1,81 @@
 # Trevor Debugging Notes
 
-## Known issue: Playwright CDN blocked in container
+## Resolved: Playwright CDN blocked in container
 
 ### Symptom
-Tests fail during setup with a DNS resolution error for `cdn.playwright.dev`. Chromium never installs, so no tests run.
+Tests fail during setup with a DNS resolution error for `cdn.playwright.dev`.
 
 ### Root cause
-The managed agent container has general internet access (ledgerlab.ai, mailinator.com, httpbin.org all reachable) but `cdn.playwright.dev` specifically is blocked. This prevents `npx playwright install chromium` from downloading the Chromium binary.
+`cdn.playwright.dev` is blocked in the managed agent container. `npx playwright install chromium` fails.
 
-### Fix applied
-Two changes were made:
-
-**1. `managed-agent/run-session.js`** — setup command falls back to apt if the Playwright CDN fails:
+### Fix
+`run-session.js` setup command falls back to apt:
 ```
 npx playwright install chromium 2>/dev/null || apt-get install -y chromium-browser 2>/dev/null || apt-get install -y chromium 2>/dev/null
 ```
+`scripts/launch-browser.js` launches Playwright's bundled Chromium with no `executablePath` override.
 
-**2. `scripts/launch-browser.js`** (new shared helper) — auto-detects the system Chromium path so scripts work whether Playwright's bundled Chromium or the system one was installed:
-```javascript
-const { launchBrowser } = require('./launch-browser');
-const browser = await launchBrowser();
+---
+
+## Resolved: Mailinator inbox always appears empty via Playwright
+
+### Symptom
+AUTH-01 and AUTH-04 time out waiting for a verification email that is clearly visible in a real browser.
+
+### Root cause (final)
+Mailinator delivers inbox data via WebSocket (`wss://www.mailinator.com/ws/fetchpub`). The managed agent container's `libcurl` does not support the `wss://` protocol — confirmed with:
 ```
-All 8 test scripts updated to use this instead of `chromium.launch(...)` directly.
+curl -sv 'wss://www.mailinator.com/ws/fetchpub'
+# → Protocol "wss" not supported or disabled in libcurl
+```
+Playwright's Chromium inherits this limitation. No amount of `waitForLoadState` tuning or timeout increases will work — the WebSocket never delivers data.
 
-### Verifying network access
-If tests fail to reach external URLs, run this inside a session first:
-```bash
-curl -s https://httpbin.org/ip
-curl -s -o /dev/null -w "%{http_code}" https://ledgerlab.ai
-curl -s -o /dev/null -w "%{http_code}" https://www.mailinator.com
+Earlier attempts that didn't work:
+- `waitForLoadState('domcontentloaded')` — too early
+- `waitForLoadState('networkidle')` — resolves before WebSocket frame arrives
+- Retry loop with reloads — same problem on each attempt
+
+### Fix
+Replaced Mailinator UI navigation with **Guerrilla Mail REST API** in `scripts/mail-helper.js`. Pure HTTP polling — no WebSocket, no browser, no key required.
+
+```javascript
+const { createInbox, waitForCode } = require('./mail-helper');
+const { email, sid_token } = await createInbox('ledgerlab-test-' + Date.now());
+const code = await waitForCode(sid_token, 'Activate');
+```
+
+Email addresses take the form `{prefix}@guerrillamailblock.com`. LedgerLab delivers to this domain.
+
+---
+
+## Resolved: Cookie consent dialog blocking form submission
+
+### Symptom
+Signup form submission appeared to succeed (no JS error) but page stayed on `/signup` and no email arrived. The URL doesn't change on the verification step — this is expected — but in early runs the form wasn't submitting at all.
+
+### Root cause
+A cookie consent banner ("Accept all" / "Reject non-essential") loads on top of the page and intercepted clicks before the form could be interacted with.
+
+### Fix
+Both auth-01 and auth-04 now dismiss the banner before filling the form:
+```javascript
+const acceptBtn = page.locator('button:has-text("Accept all")');
+if (await acceptBtn.isVisible().catch(() => false)) {
+  await acceptBtn.click();
+  await page.waitForTimeout(500);
+}
 ```
 
 ---
 
-## Known issue: Mailinator inbox appears empty via Playwright
+## Verifying network access
 
-### Symptom
-AUTH-01 and AUTH-04 time out waiting for an email row that never appears, even though the email is visible in a real browser.
-
-### Root cause
-Mailinator's inbox is JavaScript-rendered. Using `waitForLoadState('domcontentloaded')` returns before the JS app has fetched and populated the email list.
-
-### Fix applied
-Changed to `waitForLoadState('networkidle')` in auth-01 and auth-04 scripts so Playwright waits for the JS to finish loading emails before checking for rows.
-
-### Status
-Fix applied but not yet verified end-to-end with a live signup (blocked by the Playwright CDN issue above, which is now fixed). Run the full suite to confirm.
+If tests fail to reach external URLs, run this inside a session:
+```bash
+curl -s https://httpbin.org/ip
+curl -s -o /dev/null -w "%{http_code}" https://ledgerlab.ai
+curl -s -o /dev/null -w "%{http_code}" https://api.guerrillamail.com/ajax.php?f=get_email_address
+```
 
 ---
 
@@ -54,9 +84,4 @@ Fix applied but not yet verified end-to-end with a live signup (blocked by the P
 Always use the managed agent runner — never run scripts directly:
 ```bash
 cd managed-agent && npm run run -- "your debug task here"
-```
-
-Example: check what Playwright actually sees on a page:
-```
-"Write and run a Playwright script that loads https://example.com, waits for networkidle, screenshots it, and dumps the page text to console"
 ```

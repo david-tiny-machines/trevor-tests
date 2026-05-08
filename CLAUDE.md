@@ -41,17 +41,13 @@ cd managed-agent && npm run run -- "your task here"
 
 - **Never write your own Playwright scripts.** Always run the existing scripts in `scripts/` exactly as-is using `node scripts/<name>.js`.
 - **Never modify test scripts** unless explicitly asked to fix a bug in them.
-- If asked to check Mailinator, debug email, or investigate a failure — run the relevant auth script, read its output, and report. Do not improvise a separate script.
+- If asked to debug email or investigate a failure — run the relevant auth script, read its output, and report. Do not improvise a separate script.
 
 ## Current Status
 
-AUTH-01 (account creation) and AUTH-04 (forgot password) were failing. Root cause identified and fixed — see [docs/DEBUGGING.md](docs/DEBUGGING.md). AUTH-02 through AUTH-08 (minus 01 and 04) verified passing. Full suite with email tests not yet re-verified after fix.
+**All 8 tests passing** as of 2026-05-09.
 
-**Next step:** run the full suite to confirm AUTH-01 and AUTH-04 now pass.
-
-```bash
-cd managed-agent && npm run run -- "Run the full auth test suite and report results"
-```
+Email verification (AUTH-01, AUTH-04) uses Guerrilla Mail REST API via `scripts/mail-helper.js` — not Mailinator. WebSockets are blocked in the managed agent container, so Mailinator's UI-based inbox cannot be used.
 
 ## Detail
 

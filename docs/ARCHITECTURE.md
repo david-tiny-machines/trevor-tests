@@ -62,18 +62,27 @@ Scripts live in the `scripts/` directory of this repo and are also published to 
 
 | Script | What it tests |
 |--------|---------------|
-| `auth-01-full-test.js` | Full signup + email verification (Mailinator) |
+| `auth-01-full-test.js` | Full signup + email verification (Guerrilla Mail) |
 | `auth-02-sign-in.js` | Login with valid credentials |
 | `auth-03-invalid-credentials.js` | Wrong password rejected |
-| `auth-04-forgot-password.js` | Full password reset flow |
+| `auth-04-forgot-password.js` | Full password reset flow (Guerrilla Mail) |
 | `auth-05-duplicate-email.js` | Duplicate email rejected |
 | `auth-06-logout.js` | Logout ends session |
 | `auth-07-email-validation.js` | Invalid email formats rejected |
 | `auth-08-session-persistence.js` | Session survives refresh |
 | `run-regression-minimal.js` | Quick smoke test (subset, single browser) |
-| `run-regression-suite.js` | Full suite in sequence |
+| `mail-helper.js` | Guerrilla Mail REST API wrapper (used by auth-01, auth-04) |
 
-Scripts use `/usr/bin/chromium` (headless) and save failure screenshots to `/workspace/screenshots/`.
+Scripts use Playwright's bundled Chromium via `launch-browser.js` (headless, no `executablePath` override). Failure screenshots saved to `/workspace/screenshots/`.
+
+## Email testing
+
+AUTH-01 and AUTH-04 need to read verification codes from inbound email. The managed agent container blocks WebSocket connections (`wss://`), so Mailinator's browser-based inbox cannot be used. Instead, `mail-helper.js` uses the **Guerrilla Mail REST API**:
+
+1. `createInbox(prefix)` — creates a session, sets the email address to `{prefix}@guerrillamailblock.com`
+2. `waitForCode(sid_token, subjectKeyword)` — polls every 15s for up to 4 minutes, extracts the 6-digit code
+
+No API key required. LedgerLab delivers to `guerrillamailblock.com`.
 
 ## Slack integration
 
