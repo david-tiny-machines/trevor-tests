@@ -61,7 +61,7 @@ async function log(msg) {
 
       const emailRow = mailPage.locator('tr:has-text("LedgerLab")').first();
       try {
-        await emailRow.waitFor({ timeout: 30000 });
+        await emailRow.waitFor({ timeout: 60000 });
         emailFound = true;
         await log('  ✓ Found email from LedgerLab');
         await emailRow.click();

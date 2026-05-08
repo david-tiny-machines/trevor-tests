@@ -17,7 +17,7 @@ async function getCodeFromEmail(mailPage, emailPrefix, emailSubject) {
     await mailPage.waitForLoadState('domcontentloaded');
     const emailRow = mailPage.locator(`tr:has-text("${emailSubject}")`).first();
     try {
-      await emailRow.waitFor({ timeout: 30000 });
+      await emailRow.waitFor({ timeout: 60000 });
       await emailRow.click();
       await mailPage.waitForTimeout(3000);
       const frame = mailPage.frameLocator('#html_msg_body');
