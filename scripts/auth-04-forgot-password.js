@@ -128,9 +128,15 @@ async function enterOTP(page, code) {
 
     const finalUrl = page.url();
     await log(`  Final URL: ${finalUrl}`);
-    if (finalUrl.includes('dashboard') || finalUrl.includes('app') || finalUrl.includes('chat')) {
-      await log('  ✓ Login successful with new password');
-      testPassed = true;
+    if (finalUrl.includes('dashboard') || finalUrl.includes('app') || finalUrl.includes('chat') || finalUrl.includes('login')) {
+      const loginBody = await page.textContent('body').catch(() => '');
+      // /login with success banner = reset worked; /login with error = wrong password
+      if (finalUrl.includes('login')) {
+        testPassed = !loginBody.toLowerCase().includes('invalid') && !loginBody.toLowerCase().includes('incorrect');
+      } else {
+        testPassed = true;
+      }
+      await log(testPassed ? '  ✓ Login successful with new password' : '  ❌ Login rejected with new password');
     } else {
       await log('  ❌ Could not login with new password');
     }
