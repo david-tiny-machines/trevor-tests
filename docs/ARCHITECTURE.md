@@ -19,9 +19,20 @@ Each test run:
 | **Session** | One test run — ephemeral, isolated |
 | **Events** | User message triggers the run; agent streams tool calls and results |
 
+## Agent and environment lifecycle
+
+The agent and environment are both created once and reused. The agent's system prompt and model are the source of truth for Trevor's behavior — they live in `managed-agent/system-prompt.js` so that `setup-agent.js` (initial creation) and `update-agent.js` (in-place updates) can never drift apart.
+
+```bash
+npm run setup    # one-time: creates agent + environment, prints IDs to put in .env
+npm run update   # push system-prompt.js / model changes to the existing agent
+```
+
+`update-agent.js` reads the agent's current `version`, sends it back as part of the update payload (the API uses optimistic concurrency), and bumps it. Same agent ID, no env changes anywhere — this is the right path for prompt iteration. Re-running `setup-agent.js` would create a *new* agent and orphan the old one.
+
 ## Environment setup
 
-The environment is created once via `setup-agent.js` and reused across sessions. Each session gets a fresh container instance but shares the pre-installed package cache.
+Each session gets a fresh container instance but shares the pre-installed package cache.
 
 The environment config must include:
 
