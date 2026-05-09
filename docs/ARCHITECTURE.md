@@ -80,7 +80,9 @@ Scripts use Playwright's bundled Chromium via `launch-browser.js` (headless, no 
 AUTH-01 and AUTH-04 need to read verification codes from inbound email. The managed agent container blocks WebSocket connections (`wss://`), so Mailinator's browser-based inbox cannot be used. Instead, `mail-helper.js` uses the **Guerrilla Mail REST API**:
 
 1. `createInbox(prefix)` — creates a session, sets the email address to `{prefix}@guerrillamailblock.com`
-2. `waitForCode(sid_token, subjectKeyword)` — polls every 15s for up to 4 minutes, extracts the 6-digit code
+2. `waitForCode(sid_token, subjectKeyword)` — polls every 5s for up to 4 minutes, extracts the 6-digit code
+
+`waitForCode` tracks the highest `mail_id` seen and uses it as the polling cursor, so older emails (e.g. an `Activate` message from signup) cannot satisfy a later wait for the same subject keyword (e.g. an `Activate`-prefixed reset email). At entry it also baselines the inbox, ignoring anything already present.
 
 No API key required. LedgerLab delivers to `guerrillamailblock.com`.
 
@@ -93,10 +95,19 @@ No API key required. LedgerLab delivers to `guerrillamailblock.com`.
 
 Both respond to Slack within 3 seconds, fire a Trevor session asynchronously, and post results back as threaded replies via `chat.postMessage`. The bot must be invited to any channel it posts to (`/invite @Trevor`).
 
+Reliability features:
+- **Boot-time env validation** — refuses to start if any of `ANTHROPIC_API_KEY`, `TREVOR_AGENT_ID`, `TREVOR_ENVIRONMENT_ID`, `TREVOR_REPO_URL`, `SLACK_BOT_TOKEN`, `SLACK_SIGNING_SECRET` are unset. Closes the "signature check silently skipped" hole.
+- **Concurrency cap** — `TREVOR_MAX_CONCURRENT` (default 2) sessions in flight; overflow gets a friendly Slack reply rather than spawning unbounded sessions.
+- **Session timeout** — `TREVOR_SESSION_TIMEOUT_MS` (default 20 min) bounds each session via `Promise.race`. The 5-minute bash limit only caps a single tool call inside the container, not the whole session.
+- **Output buffering** — agent stream chunks accumulate for ~1.5s or 3500 chars before posting to Slack, so streaming output isn't fragmented across dozens of messages and doesn't trip rate limits.
+- **Slack retry/backoff** — `chat.postMessage` retries on 429 (honoring `Retry-After`), network errors, and transient Slack errors.
+- **Event deduplication** — `event_id` (Events API) and `trigger_id` (slash commands) are remembered for 10 minutes on top of the `x-slack-retry-num` header check.
+- **Graceful shutdown** — SIGTERM/SIGINT close the HTTP server before exit so Railway redeploys don't drop in-flight responses.
+
 Gotchas resolved during setup:
 - Raw body must be captured via Express `verify` callback (not a separate streaming middleware) so `req.body` is still populated for urlencoded parsing
 - The SDK stream does not close when the session goes idle — must `break` on `session.status_idle` or the stream hangs indefinitely
-- Slack retries events if the endpoint doesn't respond fast enough — ignore requests with `x-slack-retry-num` header to avoid duplicate runs
+- `crypto.timingSafeEqual` throws on length mismatch — length-check the buffers first to avoid handler-killing throws on malformed signatures
 
 ## SDK notes
 

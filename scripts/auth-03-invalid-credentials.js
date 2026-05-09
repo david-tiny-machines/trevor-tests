@@ -1,7 +1,11 @@
 const { launchBrowser } = require('./launch-browser');
 
-const TEST_EMAIL = process.env.LEDGERLAB_TEST_EMAIL || 'ledgerlab-test-1769824520783@mailinator.com';
+const TEST_EMAIL = process.env.LEDGERLAB_TEST_EMAIL;
 const WRONG_PASSWORD = 'WrongPassword123!';
+if (!TEST_EMAIL) {
+  console.error('AUTH-03 requires LEDGERLAB_TEST_EMAIL');
+  process.exit(2);
+}
 
 async function log(msg) {
   console.log(`[${new Date().toISOString().substr(11, 8)}] ${msg}`);

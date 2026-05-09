@@ -1,7 +1,11 @@
 const { launchBrowser } = require('./launch-browser');
 
-const TEST_EMAIL = process.env.LEDGERLAB_TEST_EMAIL || 'ledgerlab-test-1769824520783@mailinator.com';
-const TEST_PASSWORD = process.env.LEDGERLAB_TEST_PASSWORD || 'TestPass123!';
+const TEST_EMAIL = process.env.LEDGERLAB_TEST_EMAIL;
+const TEST_PASSWORD = process.env.LEDGERLAB_TEST_PASSWORD;
+if (!TEST_EMAIL || !TEST_PASSWORD) {
+  console.error('AUTH-02 requires LEDGERLAB_TEST_EMAIL and LEDGERLAB_TEST_PASSWORD');
+  process.exit(2);
+}
 
 async function log(msg) {
   console.log(`[${new Date().toISOString().substr(11, 8)}] ${msg}`);

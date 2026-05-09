@@ -1,6 +1,10 @@
 const { launchBrowser } = require('./launch-browser');
 
-const EXISTING_EMAIL = process.env.LEDGERLAB_TEST_EMAIL || 'ledgerlab-test-1769824520783@mailinator.com';
+const EXISTING_EMAIL = process.env.LEDGERLAB_TEST_EMAIL;
+if (!EXISTING_EMAIL) {
+  console.error('AUTH-05 requires LEDGERLAB_TEST_EMAIL (an account that already exists)');
+  process.exit(2);
+}
 
 async function log(msg) {
   console.log(`[${new Date().toISOString().substr(11, 8)}] ${msg}`);
@@ -50,8 +54,13 @@ async function log(msg) {
         await log(`  ✓ Error displayed: "${errorText}"`);
         testPassed = true;
       } else if (bodyText.toLowerCase().includes('verify') || bodyText.toLowerCase().includes('code')) {
-        await log('  ⚠️ System shows verification screen (security through obscurity)');
-        testPassed = true;
+        // The app sometimes shows a verification screen for unknown vs duplicate
+        // emails (an enumeration-prevention pattern). That's only acceptable if
+        // the existing account is genuinely NOT able to be re-signed-up — we
+        // cannot confirm that from the UI alone, so treat this as inconclusive.
+        await log('  ❌ Verification screen shown without explicit duplicate error — cannot confirm rejection');
+      } else {
+        await log('  ❌ No error and no verification screen — duplicate not handled');
       }
     } else {
       await log('  ❌ User proceeded past signup with duplicate email');

@@ -79,19 +79,21 @@ curl -s -o /dev/null -w "%{http_code}" https://api.guerrillamail.com/ajax.php?f=
 
 ---
 
-## Known flaky: AUTH-04 email delivery timing
+## Resolved: AUTH-04 flakiness — wrong polling cursor
 
 ### Symptom
-AUTH-04 reports "reset code not received" after the 4-minute polling window, even though the reset flow UI completes successfully.
+AUTH-04 sporadically reports "reset code not received" after the 4-minute polling window, even though the reset email arrives in the inbox.
 
 ### Root cause
-Guerrilla Mail email delivery time is variable. The bash tool in the managed agent has a 5-minute execution limit per command. When AUTH-04 runs as part of the full suite, it starts ~75s in (after AUTH-01's ~65s email wait), leaving just under 4 minutes of bash budget for the email poll — which is sometimes not enough.
+`mail-helper.js` was advancing its polling cursor with `seq = data.count`. Guerrilla's `count` is the *total inbox size*, not the highest message id, so the cursor was effectively stuck — every poll re-scanned the entire inbox. That had two effects:
+1. Wasted budget refetching old emails on every iteration.
+2. The earlier `Activate` email from signup could match a later wait for any subject containing the same keyword, causing the reset poll to either pick the wrong email or stall.
 
 ### Fix applied
-The agent system prompt requires each test to run as a separate bash command, giving AUTH-04 its own 5-minute budget. The `waitForCode` timeout is 4 minutes, which fits comfortably.
+`waitForCode` now tracks the highest `mail_id` seen and uses it as the polling cursor. At entry it baselines the inbox so anything already present is ignored. Polling cadence dropped from 15s → 5s, fetches are wrapped in retry/backoff, and all interpolated values are URL-encoded.
 
-### If it fails
-Re-run AUTH-04 standalone: `@Trevor run auth-04`. It nearly always passes on retry.
+### If it still fails
+Re-run AUTH-04 standalone: `@Trevor run auth-04`. The bash 5-min limit per command still applies, so giving each test its own bash invocation matters.
 
 ---
 

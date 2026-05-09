@@ -1,15 +1,17 @@
 import Anthropic from '@anthropic-ai/sdk';
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const REQUIRED = ['ANTHROPIC_API_KEY', 'TREVOR_AGENT_ID', 'TREVOR_ENVIRONMENT_ID'];
+const missing = REQUIRED.filter(k => !process.env[k]);
+if (missing.length) {
+  console.error(`Missing required env vars: ${missing.join(', ')}`);
+  process.exit(1);
+}
 
+const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const AGENT_ID = process.env.TREVOR_AGENT_ID;
 const ENVIRONMENT_ID = process.env.TREVOR_ENVIRONMENT_ID;
 const REPO_URL = process.env.TREVOR_REPO_URL;
-
-if (!AGENT_ID || !ENVIRONMENT_ID) {
-  console.error('Missing TREVOR_AGENT_ID or TREVOR_ENVIRONMENT_ID');
-  process.exit(1);
-}
+const SESSION_TIMEOUT_MS = Number(process.env.TREVOR_SESSION_TIMEOUT_MS || 20 * 60 * 1000);
 
 const task = process.argv[2] || `Run each auth test script individually in sequence and report a result after each one:
 node scripts/auth-01-full-test.js
@@ -50,23 +52,31 @@ async function main() {
     }],
   });
 
-  for await (const event of stream) {
-    switch (event.type) {
-      case 'agent.message':
-        for (const block of event.content ?? []) {
-          if (block.text) process.stdout.write(block.text);
-        }
-        break;
-      case 'agent.tool_use':
-        process.stdout.write(`\n[${event.name}]\n`);
-        break;
-      case 'session.status_idle':
-        console.log(`\n${'─'.repeat(60)}\nDone`);
-        return;
-      case 'session.status_terminated':
-        throw new Error(`Session terminated: ${JSON.stringify(event)}`);
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error(`Session exceeded ${SESSION_TIMEOUT_MS / 1000}s timeout`)), SESSION_TIMEOUT_MS).unref()
+  );
+
+  const consumePromise = (async () => {
+    for await (const event of stream) {
+      switch (event.type) {
+        case 'agent.message':
+          for (const block of event.content ?? []) {
+            if (block.text) process.stdout.write(block.text);
+          }
+          break;
+        case 'agent.tool_use':
+          process.stdout.write(`\n[${event.name}]\n`);
+          break;
+        case 'session.status_idle':
+          console.log(`\n${'─'.repeat(60)}\nDone`);
+          return;
+        case 'session.status_terminated':
+          throw new Error(`Session terminated: ${JSON.stringify(event)}`);
+      }
     }
-  }
+  })();
+
+  await Promise.race([consumePromise, timeoutPromise]);
 }
 
 main().catch(err => {

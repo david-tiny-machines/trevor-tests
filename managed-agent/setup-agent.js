@@ -43,7 +43,7 @@ async function main() {
   console.log('Creating Trevor agent...');
   const agent = await client.beta.agents.create({
     name: 'trevor',
-    model: 'claude-sonnet-4-5-20250929',
+    model: 'claude-sonnet-4-6',
     system: TREVOR_SYSTEM_PROMPT,
     tools: [{ type: 'agent_toolset_20260401' }],
   });
