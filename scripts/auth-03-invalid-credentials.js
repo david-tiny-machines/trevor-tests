@@ -1,11 +1,13 @@
 const { launchBrowser } = require('./launch-browser');
+const { resolveAccount, ACCOUNT_FILE } = require('./test-account');
 
-const TEST_EMAIL = process.env.LEDGERLAB_TEST_EMAIL;
+const { email: TEST_EMAIL, source } = resolveAccount({ requirePassword: false });
 const WRONG_PASSWORD = 'WrongPassword123!';
 if (!TEST_EMAIL) {
-  console.error('AUTH-03 requires LEDGERLAB_TEST_EMAIL');
+  console.error(`AUTH-03 requires LEDGERLAB_TEST_EMAIL or a successful AUTH-01 run (${ACCOUNT_FILE})`);
   process.exit(2);
 }
+console.log(`[auth-03] Using email from ${source}`);
 
 async function log(msg) {
   console.log(`[${new Date().toISOString().substr(11, 8)}] ${msg}`);

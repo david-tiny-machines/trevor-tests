@@ -1,11 +1,12 @@
 const { launchBrowser } = require('./launch-browser');
+const { resolveAccount, ACCOUNT_FILE } = require('./test-account');
 
-const TEST_EMAIL = process.env.LEDGERLAB_TEST_EMAIL;
-const TEST_PASSWORD = process.env.LEDGERLAB_TEST_PASSWORD;
+const { email: TEST_EMAIL, password: TEST_PASSWORD, source } = resolveAccount();
 if (!TEST_EMAIL || !TEST_PASSWORD) {
-  console.error('AUTH-02 requires LEDGERLAB_TEST_EMAIL and LEDGERLAB_TEST_PASSWORD');
+  console.error(`AUTH-02 requires LEDGERLAB_TEST_EMAIL/LEDGERLAB_TEST_PASSWORD or a successful AUTH-01 run (${ACCOUNT_FILE})`);
   process.exit(2);
 }
+console.log(`[auth-02] Using credentials from ${source}`);
 
 async function log(msg) {
   console.log(`[${new Date().toISOString().substr(11, 8)}] ${msg}`);

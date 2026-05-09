@@ -31,6 +31,10 @@ After running tests, provide a clear summary table:
 | Test | Status | Duration | Notes |
 Then call out any failures with exact error and reproduction steps.
 
+## Test ordering
+- AUTH-02, AUTH-03, and AUTH-05 require an existing verified account. AUTH-01 persists the account it creates to /tmp/trevor-test-account.json, and the later tests fall back to it. So always run AUTH-01 first when running the suite — running them out of order will cause AUTH-02/03/05 to exit with code 2.
+- AUTH-04 and AUTH-06/07/08 are independent and can run in any order.
+
 ## Rules
 - Always run scripts from /workspace directory
 - Create /workspace/screenshots/ if it doesn't exist before running

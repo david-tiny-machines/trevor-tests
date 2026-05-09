@@ -1,10 +1,12 @@
 const { launchBrowser } = require('./launch-browser');
+const { resolveAccount, ACCOUNT_FILE } = require('./test-account');
 
-const EXISTING_EMAIL = process.env.LEDGERLAB_TEST_EMAIL;
+const { email: EXISTING_EMAIL, source } = resolveAccount({ requirePassword: false });
 if (!EXISTING_EMAIL) {
-  console.error('AUTH-05 requires LEDGERLAB_TEST_EMAIL (an account that already exists)');
+  console.error(`AUTH-05 requires LEDGERLAB_TEST_EMAIL or a successful AUTH-01 run (${ACCOUNT_FILE})`);
   process.exit(2);
 }
+console.log(`[auth-05] Using email from ${source}`);
 
 async function log(msg) {
   console.log(`[${new Date().toISOString().substr(11, 8)}] ${msg}`);

@@ -75,6 +75,10 @@ Scripts live in the `scripts/` directory of this repo and are also published to 
 
 Scripts use Playwright's bundled Chromium via `launch-browser.js` (headless, no `executablePath` override). Failure screenshots saved to `/workspace/screenshots/`.
 
+### Test account dependency
+
+AUTH-02, AUTH-03 and AUTH-05 need a real verified account to be meaningful (signing in, rejecting wrong passwords, rejecting duplicate signups). Rather than depend on a long-lived shared account, AUTH-01 writes the account it just created to `/tmp/trevor-test-account.json`, and the later tests pick it up via `scripts/test-account.js`. Explicit `LEDGERLAB_TEST_EMAIL` / `LEDGERLAB_TEST_PASSWORD` env vars still take precedence. **Run AUTH-01 first** — running 02/03/05 standalone with no env vars and no prior AUTH-01 will exit with code 2.
+
 ## Email testing
 
 AUTH-01 and AUTH-04 need to read verification codes from inbound email. The managed agent container blocks WebSocket connections (`wss://`), so Mailinator's browser-based inbox cannot be used. Instead, `mail-helper.js` uses the **Guerrilla Mail REST API**:

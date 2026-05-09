@@ -1,9 +1,11 @@
+const fs = require('fs');
 const { launchBrowser } = require('./launch-browser');
 const { createInbox, waitForCode } = require('./mail-helper');
 
 const TEST_NAME = 'Trevor Test';
 const timestamp = Date.now();
 const EMAIL_PREFIX = `ledgerlab-test-${timestamp}`;
+const ACCOUNT_FILE = '/tmp/trevor-test-account.json';
 
 async function log(msg) {
   console.log(`[${new Date().toISOString().substr(11, 8)}] ${msg}`);
@@ -17,10 +19,13 @@ async function log(msg) {
   let page = null;
   let testPassed = false;
   let verificationCode = null;
+  const testPassword = process.env.LEDGERLAB_TEST_PASSWORD || 'TestPass123!';
+  let createdEmail = null;
 
   try {
     await log('STEP 0: Create test inbox');
     const { email: TEST_EMAIL, sid_token } = await createInbox(EMAIL_PREFIX);
+    createdEmail = TEST_EMAIL;
     await log(`  Test email: ${TEST_EMAIL}`);
 
     browser = await launchBrowser();
@@ -103,7 +108,6 @@ async function log(msg) {
       const bodyText = await page.textContent('body').catch(() => '');
       if (bodyText.toLowerCase().includes('set your password') || bodyText.toLowerCase().includes('create a secure password')) {
         await log('STEP 6: Set password');
-        const testPassword = process.env.LEDGERLAB_TEST_PASSWORD || 'TestPass123!';
         await page.fill('input[type="password"]', testPassword);
         const confirmField = page.locator('input[placeholder*="Confirm" i]');
         if (await confirmField.count() > 0) await confirmField.fill(testPassword);
@@ -138,6 +142,19 @@ async function log(msg) {
   } finally {
     if (context) { try { await context.close(); } catch {} }
     if (browser) { try { await browser.close(); } catch {} }
+  }
+
+  if (testPassed && createdEmail) {
+    try {
+      fs.writeFileSync(ACCOUNT_FILE, JSON.stringify({
+        email: createdEmail,
+        password: testPassword,
+        createdAt: new Date().toISOString(),
+      }));
+      console.log(`[auth-01] Wrote credentials to ${ACCOUNT_FILE} for downstream tests`);
+    } catch (err) {
+      console.log(`[auth-01] Could not persist credentials: ${err.message}`);
+    }
   }
 
   console.log('\n========================================');
