@@ -92,6 +92,7 @@ async function runTrevorSession(task, channel) {
 
 app.get('/health', (_req, res) => res.json({ ok: true, agent: AGENT_ID }));
 
+// Slash command: /trevor <task>
 app.post('/slack/trevor', (req, res) => {
   if (SLACK_SIGNING_SECRET && !verifySlackSignature(req)) {
     return res.status(401).json({ error: 'Invalid signature' });
@@ -102,9 +103,38 @@ app.post('/slack/trevor', (req, res) => {
 
   const task = text?.trim() || 'Run the full auth test suite and report results';
 
-  // Respond to Slack within 3s, run the session async
   res.json({ response_type: 'in_channel', text: `🧪 Trevor starting: _${task}_` });
   runTrevorSession(task, channel_id).catch(console.error);
+});
+
+// Events API: @Trevor <task>
+app.post('/slack/events', (req, res) => {
+  if (SLACK_SIGNING_SECRET && !verifySlackSignature(req)) {
+    return res.status(401).json({ error: 'Invalid signature' });
+  }
+
+  const { type, challenge, event } = req.body;
+
+  // URL verification handshake when first configuring the Events API endpoint
+  if (type === 'url_verification') return res.json({ challenge });
+
+  // Ignore retries — Slack resends if we don't respond fast enough, but the
+  // session is already running so we'd double-trigger without this guard.
+  if (req.headers['x-slack-retry-num']) return res.sendStatus(200);
+
+  if (type === 'event_callback' && event?.type === 'app_mention') {
+    const channel = event.channel;
+    // Strip the @Trevor mention from the message text
+    const task = event.text.replace(/^<@[^>]+>\s*/, '').trim()
+      || 'Run the full auth test suite and report results';
+
+    res.sendStatus(200);
+    postToSlack(channel, `🧪 Trevor starting: _${task}_`).catch(console.error);
+    runTrevorSession(task, channel).catch(console.error);
+    return;
+  }
+
+  res.sendStatus(200);
 });
 
 const PORT = process.env.PORT || 3000;
