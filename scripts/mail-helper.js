@@ -10,7 +10,7 @@ async function createInbox(prefix) {
   return { email: email_addr, sid_token };
 }
 
-async function waitForCode(sid_token, subjectKeyword, timeoutMs = 480000) {
+async function waitForCode(sid_token, subjectKeyword, timeoutMs = 240000) {
   const deadline = Date.now() + timeoutMs;
   let seq = 0;
 

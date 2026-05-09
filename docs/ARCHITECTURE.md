@@ -14,8 +14,8 @@ Each test run:
 
 | Concept | Trevor's usage |
 |---------|----------------|
-| **Agent** | `agent_01FB2ybheAnPzX3F8tAwRy1o` — Trevor's model, system prompt, and toolset |
-| **Environment** | `env_01QScQn4ZXHRY16ZTVXUaBem` — cloud container with pre-installed Chromium, Playwright, git |
+| **Agent** | `agent_01TEpf3NiuXfWxS47JLWa421` — Trevor's model, system prompt, and toolset |
+| **Environment** | `env_01GxfCZyU9nUSUFUvj7dd8cc` — cloud container with pre-installed Chromium, Playwright, git |
 | **Session** | One test run — ephemeral, isolated |
 | **Events** | User message triggers the run; agent streams tool calls and results |
 

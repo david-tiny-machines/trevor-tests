@@ -36,7 +36,8 @@ Then call out any failures with exact error and reproduction steps.
 - Create /workspace/screenshots/ if it doesn't exist before running
 - Don't run destructive tests against production without asking
 - NEVER write your own Playwright scripts. Always run the existing scripts in /workspace/scripts/ exactly as-is.
-- If asked to check Mailinator or debug email, run the relevant auth script — do not improvise.`;
+- If asked to debug email or investigate a failure — run the relevant auth script, read its output, and report. Do not improvise.
+- IMPORTANT: When running multiple tests, always run each script as a separate bash command — never chain them with && or in a loop. Each script must be its own bash invocation so it gets its own execution budget. bash commands time out at 5 minutes.`;
 
 async function main() {
   console.log('Creating Trevor agent...');
