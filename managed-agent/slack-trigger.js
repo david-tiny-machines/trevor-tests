@@ -31,22 +31,29 @@ app.use(express.json({
   verify: (req, _res, buf) => { req.rawBody = buf.toString(); },
 }));
 
-async function postToSlack(channel, text) {
+async function postToSlack(channel, text, thread_ts = null) {
+  const body = { channel, text };
+  if (thread_ts) body.thread_ts = thread_ts;
   const res = await fetch('https://slack.com/api/chat.postMessage', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${SLACK_BOT_TOKEN}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ channel, text }),
+    body: JSON.stringify(body),
   });
   const json = await res.json();
   if (!json.ok) console.error('Slack post failed:', JSON.stringify(json));
   else console.log('Slack post ok to', channel);
+  return json;
 }
 
 async function runTrevorSession(task, channel) {
+  let thread_ts = null;
   try {
+    const start = await postToSlack(channel, `🧪 Trevor starting: _${task}_`);
+    thread_ts = start.ts;
+
     const cloneStep = `git clone --depth 1 ${REPO_URL} /workspace && cd /workspace && npm install && (npx playwright install chromium 2>/dev/null || apt-get install -y chromium-browser 2>/dev/null || true) && mkdir -p /workspace/screenshots`;
 
     const session = await client.beta.sessions.create({
@@ -64,29 +71,20 @@ async function runTrevorSession(task, channel) {
       }],
     });
 
-    let output = '';
     console.log('Session created:', session.id, '— streaming events...');
     for await (const event of stream) {
       console.log('Event:', event.type);
       if (event.type === 'agent.message') {
-        for (const block of event.content ?? []) {
-          if (block.text) output += block.text;
-        }
+        const text = (event.content ?? []).filter(b => b.text).map(b => b.text).join('');
+        if (text.trim()) await postToSlack(channel, text, thread_ts);
       }
       if (event.type === 'session.status_idle' || event.type === 'session.status_terminated') break;
     }
-    console.log('Stream ended. Output length:', output.length);
-
-    const MAX = 2800;
-    const body = output.length > MAX
-      ? output.slice(-MAX) + '\n_(truncated)_'
-      : output || '_(no output)_';
-
-    await postToSlack(channel, `🧪 *Trevor results for* _${task}_:\n\`\`\`\n${body}\n\`\`\``);
+    console.log('Stream ended.');
 
   } catch (err) {
     console.error('Trevor session error:', err);
-    await postToSlack(channel, `❌ Trevor error: ${err.message}`);
+    await postToSlack(channel, `❌ Trevor error: ${err.message}`, thread_ts);
   }
 }
 
@@ -103,7 +101,7 @@ app.post('/slack/trevor', (req, res) => {
 
   const task = text?.trim() || 'Run the full auth test suite and report results';
 
-  res.json({ response_type: 'in_channel', text: `🧪 Trevor starting: _${task}_` });
+  res.sendStatus(200);
   runTrevorSession(task, channel_id).catch(console.error);
 });
 
@@ -129,7 +127,6 @@ app.post('/slack/events', (req, res) => {
       || 'Run the full auth test suite and report results';
 
     res.sendStatus(200);
-    postToSlack(channel, `🧪 Trevor starting: _${task}_`).catch(console.error);
     runTrevorSession(task, channel).catch(console.error);
     return;
   }
