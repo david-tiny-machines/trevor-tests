@@ -22,14 +22,14 @@ function verifySlackSignature(req) {
   return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
 }
 
-// Capture raw body for signature verification before JSON/urlencoded parsing
-app.use((req, _res, next) => {
-  let raw = '';
-  req.on('data', chunk => raw += chunk);
-  req.on('end', () => { req.rawBody = raw; next(); });
-});
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
+// Capture raw body via verify callback so urlencoded parsing still works
+app.use(express.urlencoded({
+  extended: true,
+  verify: (req, _res, buf) => { req.rawBody = buf.toString(); },
+}));
+app.use(express.json({
+  verify: (req, _res, buf) => { req.rawBody = buf.toString(); },
+}));
 
 async function postToSlack(channel, text) {
   await fetch('https://slack.com/api/chat.postMessage', {
