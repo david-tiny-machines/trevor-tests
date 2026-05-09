@@ -32,7 +32,7 @@ app.use(express.json({
 }));
 
 async function postToSlack(channel, text) {
-  await fetch('https://slack.com/api/chat.postMessage', {
+  const res = await fetch('https://slack.com/api/chat.postMessage', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${SLACK_BOT_TOKEN}`,
@@ -40,6 +40,9 @@ async function postToSlack(channel, text) {
     },
     body: JSON.stringify({ channel, text }),
   });
+  const json = await res.json();
+  if (!json.ok) console.error('Slack post failed:', JSON.stringify(json));
+  else console.log('Slack post ok to', channel);
 }
 
 async function runTrevorSession(task, channel) {
@@ -62,13 +65,16 @@ async function runTrevorSession(task, channel) {
     });
 
     let output = '';
+    console.log('Session created:', session.id, '— streaming events...');
     for await (const event of stream) {
+      console.log('Event:', event.type);
       if (event.type === 'agent.message') {
         for (const block of event.content ?? []) {
           if (block.text) output += block.text;
         }
       }
     }
+    console.log('Stream ended. Output length:', output.length);
 
     const MAX = 2800;
     const body = output.length > MAX
