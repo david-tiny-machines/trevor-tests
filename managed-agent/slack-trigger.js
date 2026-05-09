@@ -73,6 +73,7 @@ async function runTrevorSession(task, channel) {
           if (block.text) output += block.text;
         }
       }
+      if (event.type === 'session.status_idle' || event.type === 'session.status_terminated') break;
     }
     console.log('Stream ended. Output length:', output.length);
 
