@@ -79,6 +79,35 @@ curl -s -o /dev/null -w "%{http_code}" https://api.guerrillamail.com/ajax.php?f=
 
 ---
 
+## Known flaky: AUTH-04 email delivery timing
+
+### Symptom
+AUTH-04 reports "reset code not received" after the 4-minute polling window, even though the reset flow UI completes successfully.
+
+### Root cause
+Guerrilla Mail email delivery time is variable. The bash tool in the managed agent has a 5-minute execution limit per command. When AUTH-04 runs as part of the full suite, it starts ~75s in (after AUTH-01's ~65s email wait), leaving just under 4 minutes of bash budget for the email poll — which is sometimes not enough.
+
+### Fix applied
+The agent system prompt requires each test to run as a separate bash command, giving AUTH-04 its own 5-minute budget. The `waitForCode` timeout is 4 minutes, which fits comfortably.
+
+### If it fails
+Re-run AUTH-04 standalone: `@Trevor run auth-04`. It nearly always passes on retry.
+
+---
+
+## Resolved: AUTH-01 reporting PARTIAL despite successful flow
+
+### Symptom
+AUTH-01 shows `PARTIAL` (code received, verification incomplete) even though the account is actually created.
+
+### Root cause
+After completing signup, ledgerlab.ai redirects to `/login` with a "Account created successfully!" banner — not to `/dashboard` or `/app`. The original success check only looked for those dashboard-style URLs, so the `/login` redirect fell through to a timing-sensitive body text scan.
+
+### Fix
+`auth-01-full-test.js` now explicitly handles the `/login` case: if the final URL contains `/login`, the test checks for "account created" or "success" in the page body before marking as passed.
+
+---
+
 ## Running a debug session
 
 Always use the managed agent runner — never run scripts directly:
