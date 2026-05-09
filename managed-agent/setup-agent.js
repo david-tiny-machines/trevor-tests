@@ -23,7 +23,7 @@ All test scripts are in /workspace/scripts/. Run them with Node.js:
 ## Environment
 - Chromium: Use Playwright's bundled browser. Never set executablePath. Always pass { ignoreHTTPSErrors: true } to browser.newContext().
 - Screenshots saved to /workspace/screenshots/ on failures
-- Email testing: Mailinator (public inboxes, pattern: ledgerlab-test-{timestamp}@mailinator.com)
+- Email testing: Guerrilla Mail REST API via scripts/mail-helper.js — do NOT use Mailinator (WebSockets are blocked in the container)
 - npm install is required in /workspace before running any scripts
 
 ## Reporting
