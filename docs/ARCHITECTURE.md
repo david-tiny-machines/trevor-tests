@@ -38,7 +38,7 @@ config: {
 
 This pre-installs Chromium and Playwright so sessions only need to `git clone` the test scripts (fast) rather than downloading Playwright and its bundled Chromium binary at runtime (slow, causes timeout).
 
-> **Note:** The original environment (`env_01Mhw9jnAwZLe2baxyz2vxmc`) was created without `packages`. Sessions timed out because `npm install` had to download the full Playwright + Chromium binary (~120MB) at runtime. A second environment (`env_014y7pEJd2vJ8kDaR1mFcB2i`) pre-installed these packages. The current environment (`env_01QScQn4ZXHRY16ZTVXUaBem`) was re-created alongside a new agent (`agent_01FB2ybheAnPzX3F8tAwRy1o`) to fix the system prompt which incorrectly referenced Mailinator instead of Guerrilla Mail.
+> **History:** The original environment (`env_01Mhw9jnAwZLe2baxyz2vxmc`) was created without `packages` — sessions timed out downloading Playwright + Chromium (~120MB) at runtime. Subsequent re-creations fixed the system prompt (Mailinator → Guerrilla Mail) and added the rule that each test script must be run as a separate bash command — the bash tool has a 5-minute execution limit, and running the full suite as one command left AUTH-04 with insufficient budget to wait for its reset email.
 
 ## Session flow
 
@@ -86,16 +86,17 @@ No API key required. LedgerLab delivers to `guerrillamailblock.com`.
 
 ## Slack integration
 
-`slack-trigger.js` is an Express server that handles a Slack slash command `/trevor`. It:
-1. Responds to Slack within 3 seconds (required)
-2. Fires a Trevor session asynchronously
-3. Posts results back to the Slack channel via `chat.postMessage`
+`slack-trigger.js` is an Express server deployed to Railway at `trevor-tests-production.up.railway.app`. It supports two trigger methods:
 
-Deployed to Railway at `trevor-tests-production.up.railway.app`. The slash command URL is `https://trevor-tests-production.up.railway.app/slack/trevor`. The bot must be invited to any channel it posts to (`/invite @Trevor`).
+- **Slash command** `/trevor <task>` — endpoint: `/slack/trevor`
+- **App mention** `@Trevor <task>` — endpoint: `/slack/events` (Slack Events API, `app_mention` event)
 
-Two gotchas resolved during setup:
+Both respond to Slack within 3 seconds, fire a Trevor session asynchronously, and post results back as threaded replies via `chat.postMessage`. The bot must be invited to any channel it posts to (`/invite @Trevor`).
+
+Gotchas resolved during setup:
 - Raw body must be captured via Express `verify` callback (not a separate streaming middleware) so `req.body` is still populated for urlencoded parsing
 - The SDK stream does not close when the session goes idle — must `break` on `session.status_idle` or the stream hangs indefinitely
+- Slack retries events if the endpoint doesn't respond fast enough — ignore requests with `x-slack-retry-num` header to avoid duplicate runs
 
 ## SDK notes
 
