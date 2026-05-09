@@ -117,12 +117,14 @@ async function log(msg) {
       await log(`  Final URL: ${finalUrl}`);
       await page.screenshot({ path: 'screenshots/auth-01-final.png', fullPage: true });
 
-      if (finalUrl.includes('dashboard') || finalUrl.includes('app') || finalUrl.includes('home') || finalUrl.includes('chat')) {
-        testPassed = true;
-      } else {
+      if (finalUrl.includes('dashboard') || finalUrl.includes('app') || finalUrl.includes('home') ||
+          finalUrl.includes('chat') || finalUrl.includes('login')) {
         const finalBodyText = await page.textContent('body').catch(() => '');
-        if (finalBodyText.toLowerCase().includes('success') || finalBodyText.toLowerCase().includes('dashboard') ||
-            finalBodyText.toLowerCase().includes('welcome') || finalBodyText.toLowerCase().includes('boris')) {
+        // /login with success banner = signup completed; /login without it = something went wrong
+        if (finalUrl.includes('login')) {
+          testPassed = finalBodyText.toLowerCase().includes('account created') ||
+                       finalBodyText.toLowerCase().includes('success');
+        } else {
           testPassed = true;
         }
       }
