@@ -14,8 +14,8 @@ Each test run:
 
 | Concept | Trevor's usage |
 |---------|----------------|
-| **Agent** | `agent_011CapZ7pdHqxQFsuDhvAaau` — Trevor's model, system prompt, and toolset |
-| **Environment** | `env_014y7pEJd2vJ8kDaR1mFcB2i` — cloud container with pre-installed Chromium, Playwright, git |
+| **Agent** | `agent_01FB2ybheAnPzX3F8tAwRy1o` — Trevor's model, system prompt, and toolset |
+| **Environment** | `env_01QScQn4ZXHRY16ZTVXUaBem` — cloud container with pre-installed Chromium, Playwright, git |
 | **Session** | One test run — ephemeral, isolated |
 | **Events** | User message triggers the run; agent streams tool calls and results |
 
@@ -38,7 +38,7 @@ config: {
 
 This pre-installs Chromium and Playwright so sessions only need to `git clone` the test scripts (fast) rather than downloading Playwright and its bundled Chromium binary at runtime (slow, causes timeout).
 
-> **Note:** The original environment (`env_01Mhw9jnAwZLe2baxyz2vxmc`) was created without `packages`. Sessions timed out because `npm install` had to download the full Playwright + Chromium binary (~120MB) at runtime. The current environment (`env_014y7pEJd2vJ8kDaR1mFcB2i`) pre-installs these, so sessions only need to `git clone` the test scripts.
+> **Note:** The original environment (`env_01Mhw9jnAwZLe2baxyz2vxmc`) was created without `packages`. Sessions timed out because `npm install` had to download the full Playwright + Chromium binary (~120MB) at runtime. A second environment (`env_014y7pEJd2vJ8kDaR1mFcB2i`) pre-installed these packages. The current environment (`env_01QScQn4ZXHRY16ZTVXUaBem`) was re-created alongside a new agent (`agent_01FB2ybheAnPzX3F8tAwRy1o`) to fix the system prompt which incorrectly referenced Mailinator instead of Guerrilla Mail.
 
 ## Session flow
 
