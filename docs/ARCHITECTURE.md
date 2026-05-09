@@ -91,7 +91,11 @@ No API key required. LedgerLab delivers to `guerrillamailblock.com`.
 2. Fires a Trevor session asynchronously
 3. Posts results back to the Slack channel via `chat.postMessage`
 
-Not yet deployed — needs a public HTTPS endpoint and Slack app credentials.
+Deployed to Railway at `trevor-tests-production.up.railway.app`. The slash command URL is `https://trevor-tests-production.up.railway.app/slack/trevor`. The bot must be invited to any channel it posts to (`/invite @Trevor`).
+
+Two gotchas resolved during setup:
+- Raw body must be captured via Express `verify` callback (not a separate streaming middleware) so `req.body` is still populated for urlencoded parsing
+- The SDK stream does not close when the session goes idle — must `break` on `session.status_idle` or the stream hangs indefinitely
 
 ## SDK notes
 

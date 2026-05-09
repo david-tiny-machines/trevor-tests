@@ -45,7 +45,7 @@ cd managed-agent && npm run run -- "your task here"
 
 ## Current Status
 
-**All 8 tests passing** as of 2026-05-09.
+**All 8 tests passing** as of 2026-05-09. Slack slash command `/trevor` deployed to Railway and working.
 
 Email verification (AUTH-01, AUTH-04) uses Guerrilla Mail REST API via `scripts/mail-helper.js` — not Mailinator. WebSockets are blocked in the managed agent container, so Mailinator's UI-based inbox cannot be used.
 
