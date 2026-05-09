@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "setup": "node --env-file=../.env setup-agent.js",
+    "update": "node --env-file=../.env update-agent.js",
     "run": "node --env-file=../.env run-session.js",
     "slack": "node --env-file=../.env slack-trigger.js"
   },
