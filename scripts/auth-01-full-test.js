@@ -1,6 +1,7 @@
 const fs = require('fs');
 const { launchBrowser } = require('./launch-browser');
 const { createInbox, waitForCode } = require('./mail-helper');
+const { dismissCookieBanner, enterOTP, hasPasswordStep, setAllPasswordFields, waitForPageReady } = require('./auth-helpers');
 
 const TEST_NAME = 'Trevor Test';
 const timestamp = Date.now();
@@ -34,12 +35,8 @@ async function log(msg) {
 
     await log('STEP 1: Navigate to signup page');
     await page.goto('https://ledgerlab.ai/signup');
-    await page.waitForLoadState('networkidle');
-    const acceptBtn = page.locator('button:has-text("Accept all")');
-    if (await acceptBtn.isVisible().catch(() => false)) {
-      await acceptBtn.click();
-      await page.waitForTimeout(500);
-    }
+    await waitForPageReady(page);
+    await dismissCookieBanner(page);
     await log('  ✓ Loaded signup page');
 
     await log('STEP 2: Fill signup form');
@@ -52,7 +49,6 @@ async function log(msg) {
     await log('STEP 3: Submit signup form');
     await page.click('button[type="submit"]:has-text("Continue")');
     await page.waitForTimeout(3000);
-    await page.waitForLoadState('networkidle');
 
     const afterSubmitUrl = page.url();
     await log(`  Current URL: ${afterSubmitUrl}`);
@@ -70,50 +66,29 @@ async function log(msg) {
       await log('STEP 5: Enter verification code');
       await page.bringToFront();
 
-      const otpInputs = page.locator('input[maxlength="1"]');
-      const otpCount = await otpInputs.count();
-
-      if (otpCount >= 6) {
-        await log(`  Found ${otpCount} OTP input fields`);
-        await otpInputs.first().click();
-        await page.waitForTimeout(500);
-        for (const digit of verificationCode) {
-          await page.keyboard.type(digit);
-          await page.waitForTimeout(500);
-        }
+      if (await enterOTP(page, verificationCode)) {
         await log('  ✓ Typed verification code');
         await page.screenshot({ path: 'screenshots/auth-01-otp-typed.png' });
         await page.waitForTimeout(4000);
       } else {
-        const codeInput = page.locator('input[name*="code"], input[id*="code"]');
-        if (await codeInput.count() > 0) {
-          await codeInput.first().fill(verificationCode);
-          await log('  ✓ Entered verification code in single field');
-        } else {
-          await log(`  ⚠️ No code input found on page: ${page.url()}`);
-          await page.screenshot({ path: 'screenshots/auth-01-step5-looking.png', fullPage: true });
-        }
+        await log(`  ⚠️ No code input found on page: ${page.url()}`);
+        await page.screenshot({ path: 'screenshots/auth-01-step5-looking.png', fullPage: true });
       }
 
       await page.waitForTimeout(2000);
       await page.screenshot({ path: 'screenshots/auth-01-step5.png', fullPage: true });
 
-      const submitBtn = page.locator('button[type="submit"]').first();
-      if (await submitBtn.count() > 0) {
-        await submitBtn.click();
-        await page.waitForTimeout(3000);
-        await page.waitForLoadState('networkidle');
+      if (!(await hasPasswordStep(page))) {
+        const submitBtn = page.locator('button[type="submit"]').first();
+        if (await submitBtn.count() > 0) {
+          await submitBtn.click();
+          await page.waitForTimeout(3000);
+        }
       }
 
-      const bodyText = await page.textContent('body').catch(() => '');
-      if (bodyText.toLowerCase().includes('set your password') || bodyText.toLowerCase().includes('create a secure password')) {
+      if (await hasPasswordStep(page)) {
         await log('STEP 6: Set password');
-        await page.fill('input[type="password"]', testPassword);
-        const confirmField = page.locator('input[placeholder*="Confirm" i]');
-        if (await confirmField.count() > 0) await confirmField.fill(testPassword);
-        await page.click('button:has-text("Complete")');
-        await page.waitForTimeout(3000);
-        await page.waitForLoadState('networkidle');
+        await setAllPasswordFields(page, testPassword);
         await log('  ✓ Password set');
       }
 

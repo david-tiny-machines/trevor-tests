@@ -1,5 +1,13 @@
 const { launchBrowser } = require('./launch-browser');
 const { createInbox, waitForCode } = require('./mail-helper');
+const {
+  dismissCookieBanner,
+  enterOTP,
+  hasPasswordStep,
+  login,
+  setAllPasswordFields,
+  waitForPageReady,
+} = require('./auth-helpers');
 
 const timestamp = Date.now();
 const EMAIL_PREFIX = `ledgerlab-reset-${timestamp}`;
@@ -9,20 +17,6 @@ const NEW_PASSWORD = 'NewPassword456!';
 
 async function log(msg) {
   console.log(`[${new Date().toISOString().substr(11, 8)}] ${msg}`);
-}
-
-async function enterOTP(page, code) {
-  const otpInputs = page.locator('input[maxlength="1"]');
-  if (await otpInputs.count() >= 6) {
-    await otpInputs.first().click();
-    await page.waitForTimeout(500);
-    for (const digit of code) {
-      await page.keyboard.type(digit);
-      await page.waitForTimeout(500);
-    }
-    return true;
-  }
-  return false;
 }
 
 (async () => {
@@ -41,12 +35,8 @@ async function enterOTP(page, code) {
 
     await log('SETUP: Create test account');
     await page.goto('https://ledgerlab.ai/signup');
-    await page.waitForLoadState('networkidle');
-    const acceptBtn = page.locator('button:has-text("Accept all")');
-    if (await acceptBtn.isVisible().catch(() => false)) {
-      await acceptBtn.click();
-      await page.waitForTimeout(500);
-    }
+    await waitForPageReady(page);
+    await dismissCookieBanner(page);
     await page.fill('#fullName', TEST_NAME);
     await page.fill('#email', TEST_EMAIL);
     await page.check('#terms');
@@ -61,19 +51,14 @@ async function enterOTP(page, code) {
     await enterOTP(page, verifyCode);
     await page.waitForTimeout(3000);
 
-    const bodyText = await page.textContent('body').catch(() => '');
-    if (bodyText.toLowerCase().includes('set your password')) {
-      await page.fill('input[type="password"]', ORIGINAL_PASSWORD);
-      const confirmField = page.locator('input[placeholder*="Confirm" i]');
-      if (await confirmField.count() > 0) await confirmField.fill(ORIGINAL_PASSWORD);
-      await page.click('button:has-text("Complete")');
-      await page.waitForTimeout(3000);
+    if (await hasPasswordStep(page)) {
+      await setAllPasswordFields(page, ORIGINAL_PASSWORD);
     }
     await log('  ✓ Test account created');
 
     await log('STEP 1: Request password reset');
     await page.goto('https://ledgerlab.ai/forgot-password');
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
     await page.fill('input[type="email"], input#email', TEST_EMAIL);
     await page.click('button[type="submit"]');
     await page.waitForTimeout(3000);
@@ -99,47 +84,20 @@ async function enterOTP(page, code) {
 
     await log('STEP 4: Set new password');
     await page.waitForTimeout(2000);
-    const currentBodyText = await page.textContent('body').catch(() => '');
-    if (currentBodyText.toLowerCase().includes('new password') ||
-        currentBodyText.toLowerCase().includes('set your password') ||
-        currentBodyText.toLowerCase().includes('reset your password')) {
-      const passwordFields = page.locator('input[type="password"]');
-      const pwCount = await passwordFields.count();
-      if (pwCount >= 2) {
-        await passwordFields.nth(0).fill(NEW_PASSWORD);
-        await passwordFields.nth(1).fill(NEW_PASSWORD);
-      } else if (pwCount === 1) {
-        await passwordFields.first().fill(NEW_PASSWORD);
-      }
-      await page.click('button[type="submit"]');
-      await page.waitForTimeout(3000);
+    if (await hasPasswordStep(page)) {
+      await setAllPasswordFields(page, NEW_PASSWORD);
       await log('  ✓ New password submitted');
+    } else {
+      throw new Error('Reset code accepted, but password reset form did not appear');
     }
     await page.screenshot({ path: 'screenshots/auth-04-after-password.png', fullPage: true });
 
     await log('STEP 5: Verify login with new password');
-    await page.goto('https://ledgerlab.ai/login');
-    await page.waitForLoadState('networkidle');
-    await page.fill('#email', TEST_EMAIL);
-    await page.fill('#password', NEW_PASSWORD);
-    await page.click('button:has-text("Sign In")');
-    await page.waitForTimeout(3000);
-    await page.waitForLoadState('networkidle');
+    testPassed = await login(page, TEST_EMAIL, NEW_PASSWORD);
 
     const finalUrl = page.url();
     await log(`  Final URL: ${finalUrl}`);
-    if (finalUrl.includes('dashboard') || finalUrl.includes('app') || finalUrl.includes('chat') || finalUrl.includes('login')) {
-      const loginBody = await page.textContent('body').catch(() => '');
-      // /login with success banner = reset worked; /login with error = wrong password
-      if (finalUrl.includes('login')) {
-        testPassed = !loginBody.toLowerCase().includes('invalid') && !loginBody.toLowerCase().includes('incorrect');
-      } else {
-        testPassed = true;
-      }
-      await log(testPassed ? '  ✓ Login successful with new password' : '  ❌ Login rejected with new password');
-    } else {
-      await log('  ❌ Could not login with new password');
-    }
+    await log(testPassed ? '  ✓ Login successful with new password' : '  ❌ Could not login with new password');
     await page.screenshot({ path: 'screenshots/auth-04-final.png', fullPage: true });
 
   } catch (error) {

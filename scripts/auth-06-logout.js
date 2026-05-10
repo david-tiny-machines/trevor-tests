@@ -1,7 +1,13 @@
 const { launchBrowser } = require('./launch-browser');
+const { login, waitForPageReady } = require('./auth-helpers');
+const { resolveAccount, ACCOUNT_FILE } = require('./test-account');
 
-const TEST_EMAIL = process.env.LEDGERLAB_TEST_EMAIL || 'ledgerlab-test-1769824520783@mailinator.com';
-const TEST_PASSWORD = process.env.LEDGERLAB_TEST_PASSWORD || 'TestPass123!';
+const { email: TEST_EMAIL, password: TEST_PASSWORD, source } = resolveAccount();
+if (!TEST_EMAIL || !TEST_PASSWORD) {
+  console.error(`AUTH-06 requires LEDGERLAB_TEST_EMAIL/LEDGERLAB_TEST_PASSWORD or a successful AUTH-01 run (${ACCOUNT_FILE})`);
+  process.exit(2);
+}
+console.log(`[auth-06] Using credentials from ${source}`);
 
 async function log(msg) {
   console.log(`[${new Date().toISOString().substr(11, 8)}] ${msg}`);
@@ -18,15 +24,8 @@ async function log(msg) {
 
   try {
     await log('STEP 1: Login');
-    await page.goto('https://ledgerlab.ai/login');
-    await page.fill('#email', TEST_EMAIL);
-    await page.fill('#password', TEST_PASSWORD);
-    await page.click('button:has-text("Sign In")');
-    await page.waitForTimeout(3000);
-    await page.waitForLoadState('networkidle');
-
-    const dashboardUrl = page.url();
-    if (!dashboardUrl.includes('dashboard') && !dashboardUrl.includes('app') && !dashboardUrl.includes('chat')) {
+    const loggedIn = await login(page, TEST_EMAIL, TEST_PASSWORD);
+    if (!loggedIn) {
       throw new Error('Login failed');
     }
     await log('  ✓ Logged in successfully');
@@ -40,13 +39,13 @@ async function log(msg) {
       if (btn) btn.click();
     });
     await page.waitForTimeout(3000);
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
 
     let currentUrl = page.url();
     if (currentUrl.includes('dashboard') || currentUrl.includes('chat')) {
       await log('  Trying direct logout URL...');
       await page.goto('https://ledgerlab.ai/logout');
-      await page.waitForTimeout(2000);
+      await waitForPageReady(page);
       currentUrl = page.url();
     }
 
@@ -59,7 +58,7 @@ async function log(msg) {
     } else {
       await page.goto('https://ledgerlab.ai/dashboard');
       await page.waitForTimeout(2000);
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
       const afterUrl = page.url();
       if (afterUrl.includes('login')) {
         await log('  ✓ Dashboard redirects to login (session ended)');

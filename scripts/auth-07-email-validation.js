@@ -1,4 +1,5 @@
 const { launchBrowser } = require('./launch-browser');
+const { dismissCookieBanner, waitForPageReady } = require('./auth-helpers');
 
 async function log(msg) {
   console.log(`[${new Date().toISOString().substr(11, 8)}] ${msg}`);
@@ -19,7 +20,8 @@ async function log(msg) {
     await log('Testing invalid email formats on signup form...\n');
     for (const invalidEmail of invalidEmails) {
       await page.goto('https://ledgerlab.ai/signup');
-      await page.waitForLoadState('networkidle');
+      await waitForPageReady(page);
+      await dismissCookieBanner(page);
       await page.fill('#fullName', 'Test User');
       await page.fill('#email', invalidEmail);
       await page.check('#terms');
@@ -28,7 +30,13 @@ async function log(msg) {
 
       const currentUrl = page.url();
       const bodyText = await page.textContent('body').catch(() => '');
-      const wasRejected = currentUrl.includes('signup') && !bodyText.toLowerCase().includes('verify your email');
+      const emailFieldInvalid = await page.locator('#email').evaluate(el => !el.validity.valid).catch(() => false);
+      const hasValidationText = bodyText.toLowerCase().includes('invalid') ||
+                                bodyText.toLowerCase().includes('valid email') ||
+                                bodyText.toLowerCase().includes('enter an email');
+      const wasRejected = currentUrl.includes('signup') &&
+                          !bodyText.toLowerCase().includes('verify your email') &&
+                          (emailFieldInvalid || hasValidationText);
 
       if (wasRejected) {
         await log(`  ✓ "${invalidEmail}" - Rejected`);

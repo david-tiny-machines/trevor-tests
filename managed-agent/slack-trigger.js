@@ -148,7 +148,7 @@ async function runTrevorSession(task, channel) {
     thread_ts = start.ts || null;
     buffer = makeSlackBuffer(channel, thread_ts);
 
-    const cloneStep = `git clone --depth 1 ${REPO_URL} /workspace && cd /workspace && npm install && (npx playwright install chromium 2>/dev/null || apt-get install -y chromium-browser 2>/dev/null || true) && mkdir -p /workspace/screenshots`;
+    const cloneStep = `git clone --depth 1 ${REPO_URL} /workspace && cd /workspace && npm install && (npx playwright install chromium 2>/dev/null || apt-get install -y chromium-browser 2>/dev/null || apt-get install -y chromium 2>/dev/null) && mkdir -p /workspace/screenshots`;
 
     const session = await client.beta.sessions.create({
       agent: AGENT_ID,

@@ -1,5 +1,6 @@
 const { launchBrowser } = require('./launch-browser');
 const { resolveAccount, ACCOUNT_FILE } = require('./test-account');
+const { dismissCookieBanner, waitForPageReady } = require('./auth-helpers');
 
 const { email: EXISTING_EMAIL, source } = resolveAccount({ requirePassword: false });
 if (!EXISTING_EMAIL) {
@@ -24,7 +25,8 @@ async function log(msg) {
   try {
     await log('STEP 1: Navigate to signup page');
     await page.goto('https://ledgerlab.ai/signup');
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
+    await dismissCookieBanner(page);
 
     await log('STEP 2: Fill form with existing email');
     await page.fill('#fullName', 'Duplicate Test');

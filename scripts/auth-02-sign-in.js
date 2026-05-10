@@ -1,5 +1,6 @@
 const { launchBrowser } = require('./launch-browser');
 const { resolveAccount, ACCOUNT_FILE } = require('./test-account');
+const { login, verifyAuthenticated } = require('./auth-helpers');
 
 const { email: TEST_EMAIL, password: TEST_PASSWORD, source } = resolveAccount();
 if (!TEST_EMAIL || !TEST_PASSWORD) {
@@ -24,40 +25,15 @@ async function log(msg) {
 
   try {
     await log('STEP 1: Navigate to login page');
-    await page.goto('https://ledgerlab.ai/login');
-    await page.waitForLoadState('networkidle');
-    await log('  ✓ Loaded login page');
-
-    await log('STEP 2: Enter credentials');
-    await page.fill('#email', TEST_EMAIL);
-    await page.fill('#password', TEST_PASSWORD);
-    await log(`  ✓ Entered email and password`);
-    await page.screenshot({ path: 'screenshots/auth-02-step2.png' });
-
-    await log('STEP 3: Submit login');
-    await page.click('button:has-text("Sign In")');
-    await page.waitForTimeout(3000);
-    await page.waitForLoadState('networkidle');
+    testPassed = await login(page, TEST_EMAIL, TEST_PASSWORD);
 
     const currentUrl = page.url();
     await log(`  Current URL: ${currentUrl}`);
-    await page.screenshot({ path: 'screenshots/auth-02-step3.png', fullPage: true });
+    await page.screenshot({ path: 'screenshots/auth-02-after-login.png', fullPage: true });
 
-    await log('STEP 4: Verify logged in');
-    if (currentUrl.includes('dashboard') || currentUrl.includes('app') || currentUrl.includes('chat')) {
-      testPassed = true;
-      await log('  ✓ Redirected to authenticated area');
-    } else {
-      const bodyText = await page.textContent('body').catch(() => '');
-      if (bodyText.toLowerCase().includes('logout') || bodyText.toLowerCase().includes('dashboard') ||
-          bodyText.toLowerCase().includes('welcome') || bodyText.toLowerCase().includes('boris') ||
-          bodyText.toLowerCase().includes('credits')) {
-        testPassed = true;
-        await log('  ✓ Found authenticated content');
-      } else {
-        await log('  ⚠️ Could not verify login success');
-      }
-    }
+    await log('STEP 2: Verify logged in');
+    testPassed = testPassed || await verifyAuthenticated(page);
+    await log(testPassed ? '  ✓ Authenticated area verified' : '  ⚠️ Could not verify login success');
     await page.screenshot({ path: 'screenshots/auth-02-final.png', fullPage: true });
 
   } catch (error) {

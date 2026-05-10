@@ -52,6 +52,9 @@ function runTest(scriptName) {
       if (code === 0) {
         log(`✅ ${testName} PASSED (${duration}s)`, colors.green);
         results.passed.push({ test: testName, duration, output });
+      } else if (code === 2) {
+        log(`⏭️  ${testName} SKIPPED (${duration}s)`, colors.yellow);
+        results.skipped.push({ test: testName, duration, output, code });
       } else {
         log(`❌ ${testName} FAILED (${duration}s)`, colors.red);
         results.failed.push({ test: testName, duration, output, code });
@@ -92,7 +95,7 @@ async function main() {
   console.log('\n╔════════════════════════════════════════════════╗');
   console.log('║  📊 TEST RESULTS                               ║');
   console.log('╚════════════════════════════════════════════════╝\n');
-  log(`Total: ${totalTests}  ✅ ${results.passed.length}  ❌ ${results.failed.length}  ⏱️  ${totalDuration}s`, colors.blue);
+  log(`Total: ${totalTests}  ✅ ${results.passed.length}  ❌ ${results.failed.length}  ⏭️  ${results.skipped.length}  ⏱️  ${totalDuration}s`, colors.blue);
 
   if (results.failed.length > 0) {
     console.log('');
@@ -102,9 +105,20 @@ async function main() {
     }
   }
 
+  if (results.skipped.length > 0) {
+    console.log('');
+    log('SKIPPED TESTS:', colors.yellow);
+    for (const s of results.skipped) {
+      log(`  ⏭️  ${s.test}`, colors.yellow);
+    }
+  }
+
   console.log('');
   if (results.failed.length > 0) {
     log('❌ REGRESSION SUITE FAILED', colors.red);
+    process.exit(1);
+  } else if (results.skipped.length > 0) {
+    log('⚠️  REGRESSION SUITE INCOMPLETE', colors.yellow);
     process.exit(1);
   } else {
     log('✅ REGRESSION SUITE PASSED', colors.green);

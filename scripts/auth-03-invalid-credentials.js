@@ -1,5 +1,6 @@
 const { launchBrowser } = require('./launch-browser');
 const { resolveAccount, ACCOUNT_FILE } = require('./test-account');
+const { waitForPageReady } = require('./auth-helpers');
 
 const { email: TEST_EMAIL, source } = resolveAccount({ requirePassword: false });
 const WRONG_PASSWORD = 'WrongPassword123!';
@@ -25,7 +26,7 @@ async function log(msg) {
   try {
     await log('STEP 1: Navigate to login page');
     await page.goto('https://ledgerlab.ai/login');
-    await page.waitForLoadState('networkidle');
+    await waitForPageReady(page);
 
     await log('STEP 2: Enter invalid credentials');
     await page.fill('#email', TEST_EMAIL);
@@ -56,8 +57,7 @@ async function log(msg) {
           await log(`  ✓ Error element found: "${errorText}"`);
           testPassed = true;
         } else {
-          await log('  ⚠️ No visible error message (but login was blocked)');
-          testPassed = true;
+          await log('  ❌ Login stayed blocked but no visible error message was found');
         }
       }
     } else {
