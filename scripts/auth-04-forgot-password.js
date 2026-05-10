@@ -54,7 +54,16 @@ async function log(msg) {
     if (await hasPasswordStep(page)) {
       await setAllPasswordFields(page, ORIGINAL_PASSWORD);
     }
-    await log('  ✓ Test account created');
+    await log('SETUP: Verify test account can sign in');
+    if (!await login(page, TEST_EMAIL, ORIGINAL_PASSWORD)) {
+      throw new Error('Created account could not sign in before reset request');
+    }
+    await context.clearCookies();
+    await page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    }).catch(() => {});
+    await log('  ✓ Test account created and verified');
 
     await log('STEP 1: Request password reset');
     const resetBaselineMailId = await getLatestMailId(sid_token).catch(err => {

@@ -1,7 +1,7 @@
 const fs = require('fs');
 const { launchBrowser } = require('./launch-browser');
 const { createInbox, waitForCode } = require('./mail-helper');
-const { dismissCookieBanner, enterOTP, hasPasswordStep, setAllPasswordFields, waitForPageReady } = require('./auth-helpers');
+const { dismissCookieBanner, enterOTP, hasPasswordStep, login, setAllPasswordFields, waitForPageReady } = require('./auth-helpers');
 
 const TEST_NAME = 'Trevor Test';
 const timestamp = Date.now();
@@ -106,6 +106,13 @@ async function log(msg) {
         } else {
           testPassed = true;
         }
+      }
+
+      if (!testPassed) {
+        await log('STEP 7: Verify created account by signing in');
+        testPassed = await login(page, createdEmail, testPassword);
+        await log(testPassed ? '  ✓ Created account can sign in' : '  ❌ Created account could not sign in');
+        await page.screenshot({ path: 'screenshots/auth-01-login-verify.png', fullPage: true });
       }
     }
 
