@@ -13,6 +13,7 @@ const ENVIRONMENT_ID = process.env.TREVOR_ENVIRONMENT_ID;
 const REPO_URL = process.env.TREVOR_REPO_URL;
 const SESSION_TIMEOUT_MS = Number(process.env.TREVOR_SESSION_TIMEOUT_MS || 20 * 60 * 1000);
 
+const FULL_AUTH_SUITE_DISPLAY = 'Run the full auth regression suite';
 const FULL_AUTH_SUITE_TASK = `Run the full auth regression suite. Run each auth test script individually in sequence as its own separate bash command/tool call, and report a result after each one. Do not run npm test. Do not use a suite script. Do not chain commands with &&, ;, or loops.
 node scripts/auth-01-full-test.js
 node scripts/auth-02-sign-in.js
@@ -26,25 +27,25 @@ After all tests, provide a final summary table with exactly 8 rows. If any AUTH-
 
 function normalizeTask(input) {
   const text = (input || '').trim();
-  if (!text) return FULL_AUTH_SUITE_TASK;
+  if (!text) return { displayText: FULL_AUTH_SUITE_DISPLAY, agentText: FULL_AUTH_SUITE_TASK };
 
   const lower = text.toLowerCase();
   const wantsSuite = (lower.includes('regression') || lower.includes('full') || lower.includes('auth')) &&
                      (lower.includes('suite') || lower.includes('all tests') || lower.includes('all auth'));
-  if (wantsSuite) return FULL_AUTH_SUITE_TASK;
+  if (wantsSuite) return { displayText: text, agentText: FULL_AUTH_SUITE_TASK };
 
-  return text;
+  return { displayText: text, agentText: text };
 }
 
 const task = normalizeTask(process.argv[2]);
 
 async function main() {
-  console.log(`Starting Trevor: "${task}"\n${'─'.repeat(60)}`);
+  console.log(`Starting Trevor: "${task.displayText}"\n${'─'.repeat(60)}`);
 
   const session = await client.beta.sessions.create({
     agent: AGENT_ID,
     environment_id: ENVIRONMENT_ID,
-    title: `Trevor: ${task.slice(0, 50)}`,
+    title: `Trevor: ${task.displayText.slice(0, 50)}`,
   });
 
   console.log(`Session: ${session.id}\n`);
@@ -56,8 +57,8 @@ async function main() {
     : '';
 
   const message = cloneStep
-    ? `Run this setup command first: ${cloneStep}mkdir -p /workspace/screenshots\n\nThen: ${task}`
-    : task;
+    ? `Run this setup command first: ${cloneStep}mkdir -p /workspace/screenshots\n\nThen: ${task.agentText}`
+    : task.agentText;
 
   await client.beta.sessions.events.send(session.id, {
     events: [{

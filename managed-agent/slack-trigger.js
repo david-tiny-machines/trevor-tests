@@ -27,6 +27,7 @@ const MAX_CONCURRENT_SESSIONS = Number(process.env.TREVOR_MAX_CONCURRENT || 2);
 const SESSION_TIMEOUT_MS = Number(process.env.TREVOR_SESSION_TIMEOUT_MS || 20 * 60 * 1000);
 const SLACK_FLUSH_MS = 1500;
 const SLACK_MAX_CHARS = 3500;
+const FULL_AUTH_SUITE_DISPLAY = 'Run the full auth regression suite';
 const FULL_AUTH_SUITE_TASK = `Run the full auth regression suite. Run each auth test script individually in sequence as its own separate bash command/tool call, and report a result after each one. Do not run npm test. Do not use a suite script. Do not chain commands with &&, ;, or loops.
 node scripts/auth-01-full-test.js
 node scripts/auth-02-sign-in.js
@@ -44,14 +45,14 @@ const DEDUP_TTL_MS = 10 * 60 * 1000;
 
 function normalizeTask(input) {
   const text = (input || '').trim();
-  if (!text) return FULL_AUTH_SUITE_TASK;
+  if (!text) return { displayText: FULL_AUTH_SUITE_DISPLAY, agentText: FULL_AUTH_SUITE_TASK };
 
   const lower = text.toLowerCase();
   const wantsSuite = (lower.includes('regression') || lower.includes('full') || lower.includes('auth')) &&
                      (lower.includes('suite') || lower.includes('all tests') || lower.includes('all auth'));
-  if (wantsSuite) return FULL_AUTH_SUITE_TASK;
+  if (wantsSuite) return { displayText: text, agentText: FULL_AUTH_SUITE_TASK };
 
-  return text;
+  return { displayText: text, agentText: text };
 }
 
 function rememberEventId(id) {
@@ -166,7 +167,7 @@ async function runTrevorSession(task, channel) {
   let timedOut = false;
 
   try {
-    const start = await postToSlack(channel, `🧪 Trevor starting: _${task}_`);
+    const start = await postToSlack(channel, `🧪 Trevor starting: _${task.displayText}_`);
     thread_ts = start.ts || null;
     buffer = makeSlackBuffer(channel, thread_ts);
 
@@ -175,7 +176,7 @@ async function runTrevorSession(task, channel) {
     const session = await client.beta.sessions.create({
       agent: AGENT_ID,
       environment_id: ENVIRONMENT_ID,
-      title: `Trevor: ${task.slice(0, 50)}`,
+      title: `Trevor: ${task.displayText.slice(0, 50)}`,
     });
     console.log('Session created:', session.id);
 
@@ -184,7 +185,7 @@ async function runTrevorSession(task, channel) {
     await client.beta.sessions.events.send(session.id, {
       events: [{
         type: 'user.message',
-        content: [{ type: 'text', text: `Run this setup command first: ${cloneStep}\n\nThen: ${task}` }],
+        content: [{ type: 'text', text: `Run this setup command first: ${cloneStep}\n\nThen: ${task.agentText}` }],
       }],
     });
 
