@@ -14,6 +14,7 @@ npm run run -- "run the full regression suite"
 ```
 
 Or trigger from Slack: `/trevor <task>` or `@Trevor <task>` (deployed at Railway via `npm run slack`).
+Suite-style requests such as "run the full regression suite" are expanded by Trevor into the eight auth scripts below, each run as its own managed-agent bash command.
 
 ## Tests
 
@@ -45,6 +46,8 @@ npm run update   # push system-prompt.js + model changes to the live agent
 ## Test scripts
 
 **Don't run the test scripts directly on your host.** They require Playwright + Chromium and are designed to run inside the managed-agent container. Always invoke via `npm run run` (or Slack).
+
+There is intentionally no suite wrapper script. Full regression runs must execute AUTH-01 through AUTH-08 as separate managed-agent commands so each test gets its own execution budget.
 
 ## Architecture
 

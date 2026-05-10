@@ -4,7 +4,7 @@
   "description": "Ledgerlab auth regression tests",
   "private": true,
   "scripts": {
-    "test": "node scripts/run-regression-suite.js",
+    "test": "echo \"Run auth scripts individually via managed-agent; see README.md\" && exit 1",
     "test:smoke": "node scripts/run-regression-minimal.js",
     "test:health": "bash scripts/api-health-check.sh"
   },

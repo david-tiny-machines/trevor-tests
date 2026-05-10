@@ -13,7 +13,7 @@ const ENVIRONMENT_ID = process.env.TREVOR_ENVIRONMENT_ID;
 const REPO_URL = process.env.TREVOR_REPO_URL;
 const SESSION_TIMEOUT_MS = Number(process.env.TREVOR_SESSION_TIMEOUT_MS || 20 * 60 * 1000);
 
-const task = process.argv[2] || `Run each auth test script individually in sequence and report a result after each one:
+const FULL_AUTH_SUITE_TASK = `Run the full auth regression suite. Run each auth test script individually in sequence as its own separate bash command/tool call, and report a result after each one. Do not run npm test. Do not use a suite script. Do not chain commands with &&, ;, or loops.
 node scripts/auth-01-full-test.js
 node scripts/auth-02-sign-in.js
 node scripts/auth-03-invalid-credentials.js
@@ -22,7 +22,21 @@ node scripts/auth-05-duplicate-email.js
 node scripts/auth-06-logout.js
 node scripts/auth-07-email-validation.js
 node scripts/auth-08-session-persistence.js
-After all tests, provide a final summary table.`;
+After all tests, provide a final summary table with exactly 8 rows. If any AUTH-01 through AUTH-08 row is missing, report the suite as incomplete.`;
+
+function normalizeTask(input) {
+  const text = (input || '').trim();
+  if (!text) return FULL_AUTH_SUITE_TASK;
+
+  const lower = text.toLowerCase();
+  const wantsSuite = (lower.includes('regression') || lower.includes('full') || lower.includes('auth')) &&
+                     (lower.includes('suite') || lower.includes('all tests') || lower.includes('all auth'));
+  if (wantsSuite) return FULL_AUTH_SUITE_TASK;
+
+  return text;
+}
+
+const task = normalizeTask(process.argv[2]);
 
 async function main() {
   console.log(`Starting Trevor: "${task}"\n${'─'.repeat(60)}`);

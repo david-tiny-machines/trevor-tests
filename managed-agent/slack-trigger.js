@@ -27,10 +27,32 @@ const MAX_CONCURRENT_SESSIONS = Number(process.env.TREVOR_MAX_CONCURRENT || 2);
 const SESSION_TIMEOUT_MS = Number(process.env.TREVOR_SESSION_TIMEOUT_MS || 20 * 60 * 1000);
 const SLACK_FLUSH_MS = 1500;
 const SLACK_MAX_CHARS = 3500;
+const FULL_AUTH_SUITE_TASK = `Run the full auth regression suite. Run each auth test script individually in sequence as its own separate bash command/tool call, and report a result after each one. Do not run npm test. Do not use a suite script. Do not chain commands with &&, ;, or loops.
+node scripts/auth-01-full-test.js
+node scripts/auth-02-sign-in.js
+node scripts/auth-03-invalid-credentials.js
+node scripts/auth-04-forgot-password.js
+node scripts/auth-05-duplicate-email.js
+node scripts/auth-06-logout.js
+node scripts/auth-07-email-validation.js
+node scripts/auth-08-session-persistence.js
+After all tests, provide a final summary table with exactly 8 rows. If any AUTH-01 through AUTH-08 row is missing, report the suite as incomplete.`;
 
 let activeSessions = 0;
 const seenEventIds = new Map(); // event_id -> insertedAt
 const DEDUP_TTL_MS = 10 * 60 * 1000;
+
+function normalizeTask(input) {
+  const text = (input || '').trim();
+  if (!text) return FULL_AUTH_SUITE_TASK;
+
+  const lower = text.toLowerCase();
+  const wantsSuite = (lower.includes('regression') || lower.includes('full') || lower.includes('auth')) &&
+                     (lower.includes('suite') || lower.includes('all tests') || lower.includes('all auth'));
+  if (wantsSuite) return FULL_AUTH_SUITE_TASK;
+
+  return text;
+}
 
 function rememberEventId(id) {
   const now = Date.now();
@@ -216,7 +238,7 @@ app.post('/slack/trevor', (req, res) => {
   // Slash commands carry trigger_id; use it to dedupe accidental retries.
   if (trigger_id && !rememberEventId(`cmd:${trigger_id}`)) return res.sendStatus(200);
 
-  const task = text?.trim() || 'Run the full auth test suite and report results';
+  const task = normalizeTask(text);
   res.sendStatus(200);
   runTrevorSession(task, channel_id).catch(err => console.error('Unhandled session error:', err));
 });
@@ -234,8 +256,7 @@ app.post('/slack/events', (req, res) => {
 
   if (type === 'event_callback' && event?.type === 'app_mention') {
     const channel = event.channel;
-    const task = event.text.replace(/^<@[^>]+>\s*/, '').trim()
-      || 'Run the full auth test suite and report results';
+    const task = normalizeTask(event.text.replace(/^<@[^>]+>\s*/, ''));
 
     res.sendStatus(200);
     runTrevorSession(task, channel).catch(err => console.error('Unhandled session error:', err));

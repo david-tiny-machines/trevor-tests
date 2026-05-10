@@ -34,7 +34,6 @@ scripts/
   auth-06-logout.js
   auth-07-email-validation.js
   auth-08-session-persistence.js
-  run-regression-suite.js       # Runs all 8 in sequence
   run-regression-minimal.js     # Quick smoke test (single browser)
   api-health-check.sh           # Curl-based health check, no browser
 package.json                    # playwright dependency
@@ -192,7 +191,7 @@ main().catch(console.error);
 4. Try passing `setup_commands` on session create to handle the git clone
 5. If git clone keeps failing, try the Files API to upload scripts directly
 6. Verify the smoke test runs: `node scripts/run-regression-minimal.js` — it uses a single Chromium process and should complete in ~30 seconds
-7. Once smoke test works, verify full suite: `node scripts/run-regression-suite.js`
+7. Once smoke test works, verify the full suite by running AUTH-01 through AUTH-08 as separate bash commands. Do not use a suite wrapper; each test needs its own managed-agent execution budget.
 
 ---
 

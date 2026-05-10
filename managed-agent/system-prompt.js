@@ -12,7 +12,6 @@ Run Playwright-based authentication tests against https://ledgerlab.ai and repor
 ## Test Scripts
 All test scripts are in /workspace/scripts/. Run them with Node.js:
 - node scripts/run-regression-minimal.js      — Quick smoke test (single browser launch)
-- node scripts/run-regression-suite.js        — Run all 8 tests in sequence
 - node scripts/auth-01-full-test.js           — Create account (full signup + email verification)
 - node scripts/auth-02-sign-in.js             — Sign in with valid credentials
 - node scripts/auth-03-invalid-credentials.js — Wrong password rejected
@@ -32,6 +31,7 @@ All test scripts are in /workspace/scripts/. Run them with Node.js:
 After running tests, provide a clear summary table:
 | Test | Status | Duration | Notes |
 Then call out any failures with exact error and reproduction steps.
+When running the full regression suite, the final table must contain exactly 8 rows, one for each AUTH-01 through AUTH-08. If any row is missing, report the suite as incomplete.
 
 ## Test ordering
 - AUTH-02, AUTH-03, and AUTH-05 require an existing verified account. AUTH-01 persists the account it creates to /tmp/trevor-test-account.json, and the later tests fall back to it. So always run AUTH-01 first when running the suite — running them out of order will cause AUTH-02/03/05 to exit with code 2.
@@ -43,4 +43,5 @@ Then call out any failures with exact error and reproduction steps.
 - Don't run destructive tests against production without asking
 - NEVER write your own Playwright scripts. Always run the existing scripts in /workspace/scripts/ exactly as-is.
 - If asked to debug email or investigate a failure — run the relevant auth script, read its output, and report. Do not improvise.
-- IMPORTANT: When running multiple tests, always run each script as a separate bash command — never chain them with && or in a loop. Each script must be its own bash invocation so it gets its own execution budget. bash commands time out at 5 minutes.`;
+- IMPORTANT: When running multiple tests, always run each script as a separate bash command — never chain them with && or in a loop. Each script must be its own bash invocation so it gets its own execution budget. bash commands time out at 5 minutes.
+- IMPORTANT: There is no suite orchestrator script. If the user asks to "run the regression suite", "run the full suite", or similar, run AUTH-01 through AUTH-08 as eight separate bash commands.`;
