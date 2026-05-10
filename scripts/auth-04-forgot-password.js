@@ -1,5 +1,5 @@
 const { launchBrowser } = require('./launch-browser');
-const { createInbox, waitForCode } = require('./mail-helper');
+const { createInbox, getLatestMailId, waitForCode } = require('./mail-helper');
 const {
   dismissCookieBanner,
   enterOTP,
@@ -57,6 +57,10 @@ async function log(msg) {
     await log('  ✓ Test account created');
 
     await log('STEP 1: Request password reset');
+    const resetBaselineMailId = await getLatestMailId(sid_token).catch(err => {
+      console.log(`[auth-04] Could not capture reset inbox baseline: ${err.message}`);
+      return null;
+    });
     await page.goto('https://ledgerlab.ai/forgot-password');
     await waitForPageReady(page);
     await page.fill('input[type="email"], input#email', TEST_EMAIL);
@@ -65,7 +69,7 @@ async function log(msg) {
     await log('  ✓ Reset request submitted');
 
     await log('STEP 2: Get reset code from email');
-    const resetCode = await waitForCode(sid_token, 'Reset');
+    const resetCode = await waitForCode(sid_token, 'Reset', 240000, { sinceMailId: resetBaselineMailId });
     if (!resetCode) throw new Error('Could not get reset code from email');
     await log(`  ✓ Got reset code: ${resetCode}`);
 

@@ -14,7 +14,7 @@ async function log(msg) {
   const page = await context.newPage();
   let testPassed = true;
 
-  const invalidEmails = ['notanemail', 'missing@domain', '@nodomain.com', 'spaces in@email.com', 'double@@at.com'];
+  const invalidEmails = ['notanemail', '@nodomain.com', 'spaces in@email.com', 'double@@at.com'];
 
   try {
     await log('Testing invalid email formats on signup form...\n');

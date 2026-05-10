@@ -28,24 +28,31 @@ async function createInbox(prefix) {
   return { email: email_addr, sid_token };
 }
 
+async function getLatestMailId(sid_token) {
+  const data = await fetchJson(`${BASE}?f=check_email&seq=0&sid_token=${encodeURIComponent(sid_token)}`);
+  let latest = 0;
+  for (const m of data.list || []) {
+    const id = Number(m.mail_id) || 0;
+    if (id > latest) latest = id;
+  }
+  return latest;
+}
+
 // Track the highest mail_id we've already seen so we never re-match emails
 // from earlier in the same inbox (e.g. an "Activate" email from signup
 // shouldn't satisfy a later wait for "Activate" from password reset).
-async function waitForCode(sid_token, subjectKeyword, timeoutMs = 240000) {
+async function waitForCode(sid_token, subjectKeyword, timeoutMs = 240000, { sinceMailId = null } = {}) {
   const deadline = Date.now() + timeoutMs;
-  let lastSeenId = 0;
+  let lastSeenId = sinceMailId ?? 0;
 
-  // Establish the baseline: anything already in the inbox at the moment we
-  // start waiting should be ignored. waitForCode is always called immediately
-  // before the action that triggers the email.
-  try {
-    const initial = await fetchJson(`${BASE}?f=check_email&seq=0&sid_token=${encodeURIComponent(sid_token)}`);
-    for (const m of initial.list || []) {
-      const id = Number(m.mail_id) || 0;
-      if (id > lastSeenId) lastSeenId = id;
+  // Establish the baseline when the caller did not capture one before the
+  // action that triggers the email.
+  if (sinceMailId == null) {
+    try {
+      lastSeenId = await getLatestMailId(sid_token);
+    } catch (err) {
+      console.log(`[mail-helper] Baseline poll failed (continuing): ${err.message}`);
     }
-  } catch (err) {
-    console.log(`[mail-helper] Baseline poll failed (continuing): ${err.message}`);
   }
 
   while (Date.now() < deadline) {
@@ -87,4 +94,4 @@ async function waitForCode(sid_token, subjectKeyword, timeoutMs = 240000) {
   return null;
 }
 
-module.exports = { createInbox, waitForCode };
+module.exports = { createInbox, getLatestMailId, waitForCode };

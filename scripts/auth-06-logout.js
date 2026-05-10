@@ -1,5 +1,5 @@
 const { launchBrowser } = require('./launch-browser');
-const { login, waitForPageReady } = require('./auth-helpers');
+const { login, logout } = require('./auth-helpers');
 const { resolveAccount, ACCOUNT_FILE } = require('./test-account');
 
 const { email: TEST_EMAIL, password: TEST_PASSWORD, source } = resolveAccount();
@@ -32,41 +32,11 @@ async function log(msg) {
     await page.screenshot({ path: 'screenshots/auth-06-logged-in.png', fullPage: true });
 
     await log('STEP 2: Logout');
-    await page.evaluate(() => {
-      const btn = Array.from(document.querySelectorAll('button, a')).find(
-        el => el.textContent?.toLowerCase().includes('sign out') || el.textContent?.toLowerCase().includes('logout')
-      );
-      if (btn) btn.click();
-    });
-    await page.waitForTimeout(3000);
-    await waitForPageReady(page);
-
-    let currentUrl = page.url();
-    if (currentUrl.includes('dashboard') || currentUrl.includes('chat')) {
-      await log('  Trying direct logout URL...');
-      await page.goto('https://ledgerlab.ai/logout');
-      await waitForPageReady(page);
-      currentUrl = page.url();
-    }
+    testPassed = await logout(page);
 
     await log('STEP 3: Verify logged out');
     await page.screenshot({ path: 'screenshots/auth-06-after-logout.png', fullPage: true });
-
-    if (currentUrl.includes('login') || currentUrl === 'https://ledgerlab.ai/') {
-      await log('  ✓ Redirected to login/home page');
-      testPassed = true;
-    } else {
-      await page.goto('https://ledgerlab.ai/dashboard');
-      await page.waitForTimeout(2000);
-      await waitForPageReady(page);
-      const afterUrl = page.url();
-      if (afterUrl.includes('login')) {
-        await log('  ✓ Dashboard redirects to login (session ended)');
-        testPassed = true;
-      } else {
-        await log('  ❌ Still authenticated');
-      }
-    }
+    await log(testPassed ? '  ✓ Protected route no longer shows authenticated state' : '  ❌ Still authenticated');
     await page.screenshot({ path: 'screenshots/auth-06-final.png', fullPage: true });
 
   } catch (error) {
