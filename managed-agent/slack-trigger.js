@@ -48,6 +48,13 @@ function normalizeTask(input) {
   if (!text) return { displayText: FULL_AUTH_SUITE_DISPLAY, agentText: FULL_AUTH_SUITE_TASK };
 
   const lower = text.toLowerCase();
+  const explicitSingleScript = /node\s+scripts\/auth-\d{2}[-\w]*\.js/.test(lower) ||
+                               /auth-\d{2}/.test(lower) ||
+                               lower.includes('only this') ||
+                               lower.includes('do not run the full suite') ||
+                               lower.includes('do not run full suite');
+  if (explicitSingleScript) return { displayText: text, agentText: text };
+
   const wantsSuite = (lower.includes('regression') || lower.includes('full') || lower.includes('auth')) &&
                      (lower.includes('suite') || lower.includes('all tests') || lower.includes('all auth'));
   if (wantsSuite) return { displayText: text, agentText: FULL_AUTH_SUITE_TASK };
