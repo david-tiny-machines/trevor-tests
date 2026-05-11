@@ -34,13 +34,25 @@ async function verifyAuthenticated(page) {
 }
 
 async function verifyLoggedOut(page) {
-  await page.goto('https://ledgerlab.ai/dashboard');
+  await page.goto('https://ledgerlab.ai/login');
   await waitForPageReady(page);
   await page.waitForTimeout(1000);
 
   const currentUrl = page.url();
-  if (currentUrl.includes('login') || currentUrl === 'https://ledgerlab.ai/') return true;
-  return !(await verifyAuthenticated(page));
+  if (currentUrl.includes('login')) {
+    const passwordField = page.locator('#password, input[type="password"]');
+    if (await passwordField.isVisible().catch(() => false)) return true;
+  }
+  if (currentUrl === 'https://ledgerlab.ai/') return true;
+
+  const cookies = await page.context().cookies('https://ledgerlab.ai');
+  const hasSessionCookie = cookies.some(cookie => {
+    const name = cookie.name.toLowerCase();
+    return (name.includes('session') || name.includes('token') || name.includes('auth')) &&
+           !name.includes('csrf') &&
+           !name.includes('callback');
+  });
+  return !hasSessionCookie;
 }
 
 async function login(page, email, password) {
@@ -72,7 +84,7 @@ async function logout(page) {
   );
   if (await clickFirstVisible(logoutControl)) {
     await page.waitForTimeout(2000);
-    return verifyLoggedOut(page);
+    if (await verifyLoggedOut(page)) return true;
   }
 
   const menuControl = page.locator(
@@ -82,7 +94,7 @@ async function logout(page) {
     await page.waitForTimeout(500);
     if (await clickFirstVisible(logoutControl)) {
       await page.waitForTimeout(2000);
-      return verifyLoggedOut(page);
+      if (await verifyLoggedOut(page)) return true;
     }
   }
 
@@ -91,7 +103,7 @@ async function logout(page) {
   const signOutSubmit = page.locator('button[type="submit"], input[type="submit"], button:has-text("Sign out")');
   if (await clickFirstVisible(signOutSubmit)) {
     await page.waitForTimeout(2000);
-    return verifyLoggedOut(page);
+    if (await verifyLoggedOut(page)) return true;
   }
 
   await page.goto('https://ledgerlab.ai/logout');
