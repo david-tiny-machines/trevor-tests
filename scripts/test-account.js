@@ -10,39 +10,21 @@ const ACCOUNT_FILE = '/tmp/trevor-test-account.json';
 function resolveAccount({ requirePassword = true } = {}) {
   let email = process.env.LEDGERLAB_TEST_EMAIL;
   let password = process.env.LEDGERLAB_TEST_PASSWORD;
-  let sidToken = process.env.GUERRILLA_MAIL_SID_TOKEN;
   let source = 'env';
 
-  if (!email || (requirePassword && !password) || !sidToken) {
+  if (!email || (requirePassword && !password)) {
     try {
       const raw = fs.readFileSync(ACCOUNT_FILE, 'utf8');
       const data = JSON.parse(raw);
       email = email || data.email;
       password = password || data.password;
-      sidToken = sidToken || data.sid_token;
       source = 'auth-01';
     } catch {
       // No fallback available; caller will handle the missing-credentials case.
     }
   }
 
-  return { email, password, sidToken, source };
+  return { email, password, source };
 }
 
-function updateAccountPassword(email, password) {
-  try {
-    const raw = fs.readFileSync(ACCOUNT_FILE, 'utf8');
-    const data = JSON.parse(raw);
-    if (data.email !== email) return false;
-    fs.writeFileSync(ACCOUNT_FILE, JSON.stringify({
-      ...data,
-      password,
-      updatedAt: new Date().toISOString(),
-    }));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-module.exports = { resolveAccount, updateAccountPassword, ACCOUNT_FILE };
+module.exports = { resolveAccount, ACCOUNT_FILE };

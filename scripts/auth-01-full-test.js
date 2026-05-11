@@ -22,13 +22,11 @@ async function log(msg) {
   let verificationCode = null;
   const testPassword = process.env.LEDGERLAB_TEST_PASSWORD || 'TestPass123!';
   let createdEmail = null;
-  let createdSidToken = null;
 
   try {
     await log('STEP 0: Create test inbox');
     const { email: TEST_EMAIL, sid_token } = await createInbox(EMAIL_PREFIX);
     createdEmail = TEST_EMAIL;
-    createdSidToken = sid_token;
     await log(`  Test email: ${TEST_EMAIL}`);
 
     browser = await launchBrowser();
@@ -133,7 +131,6 @@ async function log(msg) {
       fs.writeFileSync(ACCOUNT_FILE, JSON.stringify({
         email: createdEmail,
         password: testPassword,
-        sid_token: createdSidToken,
         createdAt: new Date().toISOString(),
       }));
       console.log(`[auth-01] Wrote credentials to ${ACCOUNT_FILE} for downstream tests`);
