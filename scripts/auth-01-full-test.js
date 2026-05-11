@@ -12,6 +12,52 @@ async function log(msg) {
   console.log(`[${new Date().toISOString().substr(11, 8)}] ${msg}`);
 }
 
+async function isSignupPasswordStep(page) {
+  if (!page.url().includes('/signup')) return false;
+  const passwordCount = await page.locator('input[type="password"]').count();
+  if (passwordCount > 0) return true;
+  return hasPasswordStep(page);
+}
+
+async function waitForSignupPasswordStep(page, timeoutMs = 15000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await isSignupPasswordStep(page)) return true;
+    await page.waitForTimeout(1000);
+  }
+  return false;
+}
+
+async function getVisibleErrorText(page) {
+  const bodyText = await page.textContent('body').catch(() => '');
+  const lower = bodyText.toLowerCase();
+  if (!lower.includes('error') && !lower.includes('failed') && !lower.includes('invalid')) return '';
+
+  const errorEl = page.locator('[role="alert"], [class*="error" i], .text-red, .text-destructive');
+  if (await errorEl.count() > 0) {
+    return (await errorEl.first().textContent().catch(() => '') || '').trim();
+  }
+  return bodyText.split('\n').map(line => line.trim()).filter(Boolean).slice(0, 5).join(' | ');
+}
+
+async function completeSignupPasswordStep(page, password) {
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    if (!await waitForSignupPasswordStep(page, attempt === 1 ? 15000 : 5000)) {
+      return !page.url().includes('/signup');
+    }
+
+    await log(`  Password submit attempt ${attempt}`);
+    await setAllPasswordFields(page, password);
+    await page.waitForTimeout(5000);
+
+    if (!await isSignupPasswordStep(page)) return true;
+
+    const errorText = await getVisibleErrorText(page);
+    if (errorText) await log(`  Password step still visible with error: ${errorText}`);
+  }
+  return false;
+}
+
 (async () => {
   console.log('🧪 AUTH-01: Create Account (Full Test)');
   console.log('========================================\n');
@@ -69,27 +115,26 @@ async function log(msg) {
       if (await enterOTP(page, verificationCode)) {
         await log('  ✓ Typed verification code');
         await page.screenshot({ path: 'screenshots/auth-01-otp-typed.png' });
-        await page.waitForTimeout(4000);
+        await waitForSignupPasswordStep(page, 15000);
       } else {
         await log(`  ⚠️ No code input found on page: ${page.url()}`);
         await page.screenshot({ path: 'screenshots/auth-01-step5-looking.png', fullPage: true });
       }
 
-      await page.waitForTimeout(2000);
       await page.screenshot({ path: 'screenshots/auth-01-step5.png', fullPage: true });
 
-      if (!(await hasPasswordStep(page))) {
+      if (!(await isSignupPasswordStep(page))) {
         const submitBtn = page.locator('button[type="submit"]').first();
         if (await submitBtn.count() > 0) {
           await submitBtn.click();
-          await page.waitForTimeout(3000);
+          await waitForSignupPasswordStep(page, 10000);
         }
       }
 
-      if (await hasPasswordStep(page)) {
+      if (await isSignupPasswordStep(page)) {
         await log('STEP 6: Set password');
-        await setAllPasswordFields(page, testPassword);
-        await log('  ✓ Password set');
+        const passwordCompleted = await completeSignupPasswordStep(page, testPassword);
+        await log(passwordCompleted ? '  ✓ Password step completed' : '  ❌ Password step did not complete');
       }
 
       const finalUrl = page.url();
@@ -110,7 +155,7 @@ async function log(msg) {
 
       if (!testPassed) {
         await log('STEP 7: Verify created account by signing in');
-        testPassed = await login(page, createdEmail, testPassword);
+        testPassed = await login(page, createdEmail, testPassword, { attempts: 6, delayMs: 5000 });
         await log(testPassed ? '  ✓ Created account can sign in' : '  ❌ Created account could not sign in');
         await page.screenshot({ path: 'screenshots/auth-01-login-verify.png', fullPage: true });
       }

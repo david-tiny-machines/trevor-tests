@@ -166,8 +166,11 @@ async function setAllPasswordFields(page, password) {
     await passwordFields.nth(i).fill(password);
   }
 
-  await page.click('button[type="submit"]');
-  await page.waitForTimeout(3000);
+  const submit = page.locator('button[type="submit"], button:has-text("Complete"), button:has-text("Continue")');
+  if (!await clickFirstVisible(submit)) {
+    throw new Error('Password submit button not found');
+  }
+  await page.waitForTimeout(5000);
 }
 
 module.exports = {
