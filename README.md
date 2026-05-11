@@ -16,6 +16,10 @@ npm run run -- "run the full regression suite"
 Or trigger from Slack: `/trevor <task>` or `@Trevor <task>` (deployed at Railway via `npm run slack`).
 Suite-style requests such as "run the full regression suite" are expanded by Trevor into the eight auth scripts below, each run as its own managed-agent bash command.
 
+## Current status
+
+All 8 auth tests passed in the managed-agent container as of 2026-05-11. AUTH-01 has been hardened around the verification-code → password-step transition and final account readiness check, which was the main source of downstream blocked tests.
+
 ## Tests
 
 | ID | Test | What it checks |

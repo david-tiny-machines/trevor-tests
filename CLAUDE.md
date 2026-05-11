@@ -45,7 +45,9 @@ cd managed-agent && npm run run -- "your task here"
 
 ## Current Status
 
-**All 8 tests passing** as of 2026-05-09. Slack integration deployed to Railway — trigger via `/trevor <task>` slash command or `@Trevor <task>` mention. AUTH-04 (forgot password) is occasionally flaky due to Guerrilla Mail email delivery timing — re-run if it fails.
+**All 8 tests passing** as of 2026-05-11. Slack integration deployed to Railway — trigger via `/trevor <task>` slash command or `@Trevor <task>` mention. Suite-style requests are expanded into AUTH-01 through AUTH-08, each run as a separate managed-agent bash command.
+
+AUTH-01 has been hardened around the verification-code → password-step transition and final account readiness check. AUTH-04 uses Guerrilla Mail for reset codes; if it fails waiting for mail, re-run it before assuming a product regression.
 
 Email verification (AUTH-01, AUTH-04) uses Guerrilla Mail REST API via `scripts/mail-helper.js` — not Mailinator. WebSockets are blocked in the managed agent container, so Mailinator's UI-based inbox cannot be used.
 

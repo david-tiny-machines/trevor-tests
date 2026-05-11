@@ -11,11 +11,11 @@ Trevor replaces an existing OpenClaw/Railway setup that was flaky due to zombie 
 ## Current Status
 
 - ✅ Test scripts written and pushed to GitHub
-- ✅ Agent created: `agent_011CapZ7pdHqxQFsuDhvAaau`
-- ✅ Environment created: `env_01Mhw9jnAwZLe2baxyz2vxmc`
-- ✅ Sessions create successfully and Trevor responds
-- ❌ `git clone` inside the session container times out or fails
-- ❌ Session terminates with `Error: terminated` before tests run
+- ✅ Managed agent and environment created and reused
+- ✅ Slack integration deployed to Railway
+- ✅ Suite-style requests run AUTH-01 through AUTH-08 as separate managed-agent bash commands
+- ✅ All 8 auth tests passing in the managed-agent container as of 2026-05-11
+- ✅ AUTH-01 hardened around OTP/password-step timing and account readiness
 
 ---
 
@@ -39,7 +39,7 @@ scripts/
 package.json                    # playwright dependency
 managed-agent/
   setup-agent.js                # Already run — created agent + environment
-  run-session.js                # The broken bit — needs fixing
+  run-session.js                # Starts managed-agent sessions and streams output
 ```
 
 ---
@@ -99,30 +99,25 @@ await client.beta.sessions.events.send(sessionId, {
 
 ---
 
-## The Problem
+## Resolved Historical Problem
 
-When Trevor receives the message, it tries to `git clone https://github.com/david-tiny-machines/trevor-tests /workspace` inside the container but times out. Possible causes:
+Early sessions failed while cloning/installing inside the managed-agent container. The current flow works:
 
-1. **Network access** — environment may need `networking: { type: 'unrestricted' }` config (already set in setup but unsure if it applied)
-2. **Wrong workspace path** — `/workspace` may not be writable or may not exist
-3. **Session timeout** — default session timeout may be too short for clone + npm install + chromium install + test run
-4. **Setup commands** — the `setup_commands` field on session creation might be the right way to run init rather than asking Trevor to do it in the message
+1. `run-session.js` creates a fresh managed-agent session.
+2. Trevor clones `TREVOR_REPO_URL` into `/workspace`.
+3. Dependencies and Chromium are installed.
+4. Requested tests run from `/workspace`.
 
-The last session that failed:
-```
-Session: sesn_011CapZgJxG3RW3MtR3Fe9Ji
-Trevor said: "The git clone + npm install timed out. Let me try a different approach"
-Then: "The directory is empty"
-Then: terminated
-```
+The remaining reliability rule is operational: full regression runs must execute AUTH-01 through AUTH-08 as separate bash commands, not through a suite wrapper, so each test gets its own execution budget.
 
 ---
 
-## What Needs Fixing
+## What To Preserve
 
-1. **Get the test scripts into the container** — either via:
-   - `setup_commands` on session create (preferred — runs before Trevor starts)
-   - Fixing whatever is blocking git clone
+1. **Fresh container per run** — avoids persistent Chromium/process state.
+2. **Guerrilla Mail REST polling** — avoids Mailinator WebSocket issues in the container.
+3. **Separate bash command per auth script** — avoids the 5-minute bash-command budget cutting off email-dependent tests.
+4. **AUTH-01 credential handoff** — downstream account-dependent tests use `/tmp/trevor-test-account.json`.
    - Or use the Files API to upload scripts directly
 
 2. **Get Chromium working** — scripts use `/usr/bin/chromium`. The environment setup_commands include `apt-get install -y chromium` but unclear if that ran correctly given the environment was created with:
@@ -185,13 +180,11 @@ main().catch(console.error);
 
 ## Suggested Next Steps for Claude Code
 
-1. Read the Managed Agents docs at the URL above
-2. Check whether `setup_commands` belongs on the environment, the session, or both
-3. Try recreating the environment with `setup_commands` included (Chromium install)
-4. Try passing `setup_commands` on session create to handle the git clone
-5. If git clone keeps failing, try the Files API to upload scripts directly
-6. Verify the smoke test runs: `node scripts/run-regression-minimal.js` — it uses a single Chromium process and should complete in ~30 seconds
-7. Once smoke test works, verify the full suite by running AUTH-01 through AUTH-08 as separate bash commands. Do not use a suite wrapper; each test needs its own managed-agent execution budget.
+1. Keep `managed-agent/system-prompt.js`, `run-session.js`, and `slack-trigger.js` aligned when changing suite behavior.
+2. If the prompt/model changes, run `cd managed-agent && npm run update` to update the existing managed agent.
+3. If test scripts change, push to `main`, wait for Railway deploy, then run Trevor from Slack or `managed-agent`.
+4. Verify the smoke test with `npm run run -- "run the smoke test"` when changing setup/browser behavior.
+5. Verify the full suite by asking Trevor to "run the full regression suite"; it should run AUTH-01 through AUTH-08 as separate bash commands.
 
 ---
 

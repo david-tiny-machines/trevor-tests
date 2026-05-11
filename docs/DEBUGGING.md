@@ -110,6 +110,19 @@ After completing signup, ledgerlab.ai redirects to `/login` with a "Account crea
 
 ---
 
+## Resolved: AUTH-01 intermittent PARTIAL after password step
+
+### Symptom
+AUTH-01 intermittently reported `PARTIAL`: signup submitted, activation email arrived, OTP was entered, and the password was submitted, but the account could not immediately sign in. This cascaded into AUTH-02/03/05/06/08 being blocked because `/tmp/trevor-test-account.json` was not written.
+
+### Root cause
+The script relied on fixed sleeps around the OTP-to-password transition and treated a password submit click as proof the password step had completed. In practice, the signup UI can stay on `/signup` briefly while the password step settles, and account readiness can lag the UI completion.
+
+### Fix
+`auth-01-full-test.js` now waits for the password step as a concrete UI state, retries password submission while the password form remains visible, logs any visible error text, and verifies the created account with a longer retry window before writing credentials.
+
+---
+
 ## Running a debug session
 
 Always use the managed agent runner — never run scripts directly:
