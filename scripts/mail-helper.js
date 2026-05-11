@@ -44,6 +44,7 @@ async function getLatestMailId(sid_token) {
 async function waitForCode(sid_token, subjectKeyword, timeoutMs = 240000, { sinceMailId = null } = {}) {
   const deadline = Date.now() + timeoutMs;
   let lastSeenId = sinceMailId ?? 0;
+  const subjectFilter = subjectKeyword?.toLowerCase() ?? null;
 
   // Establish the baseline when the caller did not capture one before the
   // action that triggers the email.
@@ -75,7 +76,7 @@ async function waitForCode(sid_token, subjectKeyword, timeoutMs = 240000, { sinc
       const id = Number(msg.mail_id) || 0;
       if (id > lastSeenId) lastSeenId = id;
 
-      if (msg.mail_subject && msg.mail_subject.toLowerCase().includes(subjectKeyword.toLowerCase())) {
+      if (!subjectFilter || (msg.mail_subject && msg.mail_subject.toLowerCase().includes(subjectFilter))) {
         let full;
         try {
           full = await fetchJson(`${BASE}?f=fetch_email&email_id=${encodeURIComponent(msg.mail_id)}&sid_token=${encodeURIComponent(sid_token)}`);
@@ -86,7 +87,7 @@ async function waitForCode(sid_token, subjectKeyword, timeoutMs = 240000, { sinc
         const body = full.mail_body || '';
         const match = body.match(/\b(\d{6})\b/) || body.match(/(\d\s+\d\s+\d\s+\d\s+\d\s+\d)/);
         if (match) return match[1].replace(/\s/g, '');
-        console.log(`[mail-helper] Email matched subject but no 6-digit code found in body`);
+        console.log(`[mail-helper] Email matched ${subjectFilter ? 'subject' : 'post-baseline poll'} but no 6-digit code found in body`);
       }
     }
   }

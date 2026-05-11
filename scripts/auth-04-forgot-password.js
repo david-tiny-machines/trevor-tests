@@ -76,7 +76,7 @@ async function log(msg) {
     await log('  ✓ Reset request submitted');
 
     await log('STEP 2: Get reset code from email');
-    const resetCode = await waitForCode(sid_token, 'Reset', 240000, { sinceMailId: resetBaselineMailId });
+    const resetCode = await waitForCode(sid_token, null, 240000, { sinceMailId: resetBaselineMailId });
     if (!resetCode) throw new Error('Could not get reset code from email');
     await log(`  ✓ Got reset code: ${resetCode}`);
 
