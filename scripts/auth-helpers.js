@@ -55,17 +55,6 @@ async function verifyLoggedOut(page) {
   return !hasSessionCookie;
 }
 
-async function login(page, email, password) {
-  await page.goto('https://ledgerlab.ai/login');
-  await waitForPageReady(page);
-  await page.fill('#email', email);
-  await page.fill('#password', password);
-  await page.click('button[type="submit"], button:has-text("Sign In")');
-  await page.waitForURL(url => !url.pathname.includes('/login'), { timeout: 10000 }).catch(() => {});
-  await page.waitForTimeout(1000);
-  return verifyAuthenticated(page);
-}
-
 async function clickFirstVisible(locator) {
   const count = await locator.count();
   for (let i = 0; i < count; i++) {
@@ -74,6 +63,26 @@ async function clickFirstVisible(locator) {
       await item.click();
       return true;
     }
+  }
+  return false;
+}
+
+async function login(page, email, password, { attempts = 3, delayMs = 3000 } = {}) {
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    await page.goto('https://ledgerlab.ai/login');
+    await waitForPageReady(page);
+    await page.fill('#email', email);
+    await page.fill('#password', password);
+
+    const submit = page.locator('button[type="submit"], button:has-text("Sign In")');
+    if (!await clickFirstVisible(submit)) {
+      throw new Error('Login submit button not found');
+    }
+
+    await page.waitForURL(url => !url.pathname.includes('/login'), { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(1000);
+    if (await verifyAuthenticated(page)) return true;
+    if (attempt < attempts) await page.waitForTimeout(delayMs);
   }
   return false;
 }

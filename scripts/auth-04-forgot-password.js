@@ -1,5 +1,6 @@
 const { launchBrowser } = require('./launch-browser');
 const { createInbox, getLatestMailId, waitForCode } = require('./mail-helper');
+const { resolveAccount, updateAccountPassword } = require('./test-account');
 const {
   dismissCookieBanner,
   enterOTP,
@@ -12,7 +13,6 @@ const {
 const timestamp = Date.now();
 const EMAIL_PREFIX = `ledgerlab-reset-${timestamp}`;
 const TEST_NAME = 'Reset Test';
-const ORIGINAL_PASSWORD = 'OriginalPass123!';
 const NEW_PASSWORD = 'NewPassword456!';
 
 async function log(msg) {
@@ -29,31 +29,42 @@ async function log(msg) {
   let testPassed = false;
 
   try {
-    await log('SETUP: Create test inbox');
-    const { email: TEST_EMAIL, sid_token } = await createInbox(EMAIL_PREFIX);
-    await log(`  Test email: ${TEST_EMAIL}`);
+    let { email: TEST_EMAIL, password: ORIGINAL_PASSWORD, sidToken: sid_token, source } = resolveAccount();
 
-    await log('SETUP: Create test account');
-    await page.goto('https://ledgerlab.ai/signup');
-    await waitForPageReady(page);
-    await dismissCookieBanner(page);
-    await page.fill('#fullName', TEST_NAME);
-    await page.fill('#email', TEST_EMAIL);
-    await page.check('#terms');
-    await page.click('button:has-text("Continue")');
-    await page.waitForTimeout(3000);
+    if (TEST_EMAIL && ORIGINAL_PASSWORD && sid_token) {
+      await log(`SETUP: Reuse verified account from ${source}`);
+      await log(`  Test email: ${TEST_EMAIL}`);
+    } else {
+      await log('SETUP: Create test inbox');
+      const inbox = await createInbox(EMAIL_PREFIX);
+      TEST_EMAIL = inbox.email;
+      sid_token = inbox.sid_token;
+      ORIGINAL_PASSWORD = 'OriginalPass123!';
+      await log(`  Test email: ${TEST_EMAIL}`);
 
-    const verifyCode = await waitForCode(sid_token, 'Activate');
-    if (!verifyCode) throw new Error('Could not get verification code');
-    await log(`  Got verification code: ${verifyCode}`);
+      await log('SETUP: Create test account');
+      await page.goto('https://ledgerlab.ai/signup');
+      await waitForPageReady(page);
+      await dismissCookieBanner(page);
+      await page.fill('#fullName', TEST_NAME);
+      await page.fill('#email', TEST_EMAIL);
+      await page.check('#terms');
+      await page.click('button:has-text("Continue")');
+      await page.waitForTimeout(3000);
 
-    await page.bringToFront();
-    await enterOTP(page, verifyCode);
-    await page.waitForTimeout(3000);
+      const verifyCode = await waitForCode(sid_token, 'Activate');
+      if (!verifyCode) throw new Error('Could not get verification code');
+      await log(`  Got verification code: ${verifyCode}`);
 
-    if (await hasPasswordStep(page)) {
-      await setAllPasswordFields(page, ORIGINAL_PASSWORD);
+      await page.bringToFront();
+      await enterOTP(page, verifyCode);
+      await page.waitForTimeout(3000);
+
+      if (await hasPasswordStep(page)) {
+        await setAllPasswordFields(page, ORIGINAL_PASSWORD);
+      }
     }
+
     // Do not gate reset coverage on immediate post-signup login. The reset
     // request/email is the actual proof this setup account exists.
     await context.clearCookies();
@@ -105,6 +116,9 @@ async function log(msg) {
 
     await log('STEP 5: Verify login with new password');
     testPassed = await login(page, TEST_EMAIL, NEW_PASSWORD);
+    if (testPassed && updateAccountPassword(TEST_EMAIL, NEW_PASSWORD)) {
+      await log('  ✓ Updated persisted account password for downstream tests');
+    }
 
     const finalUrl = page.url();
     await log(`  Final URL: ${finalUrl}`);
